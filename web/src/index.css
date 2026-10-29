@@ -1,0 +1,221 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* =========================================================
+   设计 token —— 浅色 / 深色共用一套语义变量
+   ========================================================= */
+:root {
+  --bg: #f5f6f9;
+  --surface: #ffffff;
+  --surface-2: #fbfcfe;
+  --surface-3: #f2f4f8;
+  --border: #e7e9ef;
+  --border-strong: #d6dae3;
+  --fg: #0e1320;
+  --fg-muted: #5a6373;
+  --fg-subtle: #8b93a3;
+  --primary: #2563eb;
+  --primary-hover: #1d57de;
+  --primary-fg: #ffffff;
+  --primary-soft: #edf2ff;
+  --ring: rgba(37, 99, 235, 0.16);
+  --accent: #06b6d4;
+  --success: #0ea97a;
+  --warning: #e8a317;
+  --danger: #e5484d;
+  --star: #f5a524;
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-2: 0 2px 6px -1px rgba(16, 24, 40, 0.07), 0 10px 28px -14px rgba(16, 24, 40, 0.16);
+  --shadow-3: 0 24px 64px -24px rgba(16, 24, 40, 0.3), 0 2px 8px rgba(16, 24, 40, 0.06);
+}
+
+.dark {
+  --bg: #0a0d14;
+  --surface: #11151e;
+  --surface-2: #151a25;
+  --surface-3: #1b2130;
+  --border: #222a39;
+  --border-strong: #2e3849;
+  --fg: #e9edf4;
+  --fg-muted: #9ba5b7;
+  --fg-subtle: #6e7889;
+  --primary: #4f83ff;
+  --primary-hover: #3f74f5;
+  --primary-fg: #ffffff;
+  --primary-soft: #16233c;
+  --ring: rgba(79, 131, 255, 0.22);
+  --accent: #22d3ee;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #ff6369;
+  --star: #fbbf24;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.45), 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+  --shadow-3: 0 32px 80px -32px rgba(0, 0, 0, 0.8);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-base: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-star: var(--star);
+
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --shadow-e1: var(--shadow-1);
+  --shadow-e2: var(--shadow-2);
+  --shadow-e3: var(--shadow-3);
+
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Hiragino Sans GB', sans-serif;
+  --font-mono: 'Cascadia Mono', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--ring);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* 细滚动条 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--fg-subtle) 40%, transparent);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--fg-subtle) 70%, transparent);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 邮件正文渲染（外部 HTML 不可信，容器负责隔离） */
+@layer components {
+  .mail-body {
+    font-size: 14.5px;
+    line-height: 1.78;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .mail-body p {
+    margin: 0 0 14px;
+  }
+  .mail-body h1,
+  .mail-body h2,
+  .mail-body h3 {
+    font-size: 15px;
+    margin: 22px 0 8px;
+    letter-spacing: -0.01em;
+    font-weight: 650;
+  }
+  .mail-body ul,
+  .mail-body ol {
+    margin: 0 0 14px;
+    padding-left: 20px;
+  }
+  .mail-body ul {
+    list-style: disc;
+  }
+  .mail-body ol {
+    list-style: decimal;
+  }
+  .mail-body li {
+    margin-bottom: 5px;
+  }
+  .mail-body a {
+    color: var(--primary);
+    text-decoration: none;
+    border-bottom: 1px solid var(--ring);
+  }
+  .mail-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  .mail-body blockquote {
+    margin: 0 0 14px;
+    padding-left: 14px;
+    border-left: 2px solid var(--border);
+    color: var(--fg-muted);
+  }
+  .mail-body pre,
+  .mail-body code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+  .mail-body pre {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    overflow-x: auto;
+  }
+  .mail-body table {
+    border-collapse: collapse;
+    max-width: 100%;
+  }
+  .mail-body td,
+  .mail-body th {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+  }
+}

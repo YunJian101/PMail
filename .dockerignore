@@ -1,0 +1,23 @@
+# 依赖与产物（容器内自己装、自己编）
+**/node_modules
+web/dist
+web/pnpm-lock.yaml.bak
+server/listen/http_server/dist
+
+# 本地脚手架与文档，不参与镜像构建
+.git
+.gitignore
+preview/
+pmail-src/
+shots-app/
+docs/
+tools/
+.upstream/
+config/
+.tools/
+build-*.log
+*.log
+*.exe
+*.db
+*.db-shm
+*.db-wal

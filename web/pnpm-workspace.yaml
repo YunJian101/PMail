@@ -1,0 +1,3 @@
+# pnpm 10 起，构建脚本白名单改由这里声明（package.json 里的 pnpm 字段已不再读取）
+onlyBuiltDependencies:
+  - esbuild

@@ -1,0 +1,12 @@
+# 统一换行：仓库里一律 LF（fpk 里的 cmd/* 是给 Linux 跑的 bash 脚本，
+# 带 CRLF 会直接 "command not found"）
+* text=auto eol=lf
+
+# 二进制文件不要做换行/文本处理
+*.png binary
+*.PNG binary
+*.ico binary
+*.fpk binary
+*.tar binary
+*.gz binary
+*.exe binary

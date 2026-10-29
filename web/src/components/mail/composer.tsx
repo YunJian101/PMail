@@ -29,6 +29,7 @@ import { toast, errorText } from '@/lib/toast'
 import { useCompose } from '@/store/compose'
 import { useSession } from '@/store/session'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { Tooltip } from '@/components/ui/tooltip'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -284,17 +285,18 @@ export function Composer() {
         <div className="px-5">
           <div className="flex items-center gap-2.5 border-b border-[color-mix(in_srgb,var(--border)_70%,transparent)] py-2.5">
             <span className="w-[52px] flex-none text-[12.5px] text-fg-subtle">{t('compose.from')}</span>
-            <select
+            <Select
+              variant="plain"
+              className="flex-1"
               value={domain}
               onChange={(event) => setDomain(event.target.value)}
-              className="flex-1 appearance-none border-0 bg-transparent text-[13.5px] text-fg outline-none"
             >
               {domains.map((item) => (
                 <option key={item} value={item}>
                   {user?.account?.split('@')[0]}@{item}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2.5 border-b border-[color-mix(in_srgb,var(--border)_70%,transparent)] py-2">

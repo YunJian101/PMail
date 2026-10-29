@@ -1,24 +1,24 @@
 import * as React from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, RefreshCw, X } from 'lucide-react'
+import { Check, Copy, HardDriveDownload, Loader2, Plus, ShieldCheck, X } from 'lucide-react'
 import { ApiError, get, post } from '@/api/client'
 import { cn } from '@/lib/utils'
 import { toast, errorText } from '@/lib/toast'
 import { useSession } from '@/store/session'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Field, Input, Select } from '@/components/ui/input'
+import { Field, Input, Textarea } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/empty'
 import { PageLoading, Spinner } from '@/components/ui/skeleton'
-import { Tooltip } from '@/components/ui/tooltip'
 
 /**
  * 安装接口只有一个入口：POST /api/setup，靠 {action, step} 分流。
- * 依据 pmail-src/server/controllers/setup.go：
+ * 依据 server/controllers/setup.go：
  *   get      + database | password | domain | dns | ssl
  *   set      + database | password | domain | ssl
- *   getParams + ssl（DNS 挑战需要添加的记录）
+ *   loadFnOsCert / uploadCert / finish（证书步骤，两种方式 + 收尾）
  * 后端把 body 反序列化成 map[string]string，所以所有值都必须是字符串。
  */
 type SetupStep = 'domain' | 'dns' | 'database' | 'ssl' | 'admin'
@@ -36,12 +36,6 @@ interface DomainConfig {
   domains: string[] | null
 }
 
-interface SslConfig {
-  /** "0" 自动 + HTTP 挑战、"1" 用户证书、"2" 自动 + DNS 挑战 */
-  type: string
-  port: number
-}
-
 interface DnsRecord {
   host: string
   type: string
@@ -52,20 +46,20 @@ interface DnsRecord {
 
 type DnsInfo = Record<string, DnsRecord[]>
 
-type DnsStatus = 'ok' | 'pending' | 'missing'
-
-/** 证书签发进度：后端 action=status 的返回 */
-interface CertStatus {
-  state: 'idle' | 'running' | 'need_txt' | 'ok' | 'ok_fallback' | 'failed'
-  records?: DnsRecord[]
-  error?: string
+/** 证书接口的返回：摘要 + 安装是否真的收尾成功 */
+interface CertResult {
+  found: boolean
+  source?: string
+  domain?: string
+  expire?: string
+  message?: string
+  finished?: boolean
+  reason?: string
 }
 
-const DNS_STATUS: Record<DnsStatus, { tone: 'success' | 'warning' | 'neutral'; label: string }> = {
-  // PMail 后端不做 DNS 探测，所以这里不假装知道「已生效」，只提示去核对
-  ok: { tone: 'neutral', label: 'setup.dns.verify' },
-  pending: { tone: 'neutral', label: 'setup.dns.verify' },
-  missing: { tone: 'neutral', label: 'setup.dns.missing' },
+interface FinishResult {
+  finished: boolean
+  reason?: string
 }
 
 function setupPost<T>(payload: Record<string, string>, timeout = 60_000) {
@@ -87,12 +81,6 @@ async function waitInstalled(timeoutMs = 60_000) {
     }
   }
   return false
-}
-
-/** 后端没有逐条记录的检测结果，只能按「值是否为空 + 是否刚重新拉取过」推断状态 */
-function recordStatus(record: DnsRecord, rechecked: boolean): DnsStatus {
-  if (!record.value) return 'missing'
-  return rechecked ? 'ok' : 'pending'
 }
 
 function CardHead({ title, desc }: { title: string; desc?: string }) {
@@ -150,28 +138,25 @@ export default function SetupPage() {
   const [smtpDomain, setSmtpDomain] = React.useState('')
   const [extraDomains, setExtraDomains] = React.useState<string[]>([])
 
-  // 第 2 步：DNS
+  // 第 2 步：DNS（后端纯本地算，不联网，进这一步就自动拉）
   const [dnsInfos, setDnsInfos] = React.useState<DnsInfo>({})
   const [dnsLoading, setDnsLoading] = React.useState(false)
-  const [dnsRechecked, setDnsRechecked] = React.useState(false)
+  /** 公网 IP：填了就把所有 A 记录的值换掉，纯前端替换，不需要网络 */
+  const [publicIP, setPublicIP] = React.useState('')
+  const [copiedKey, setCopiedKey] = React.useState('')
 
   // 第 3 步：数据库
   const [dbType, setDbType] = React.useState<'sqlite' | 'mysql'>('sqlite')
   const [dbDsn, setDbDsn] = React.useState('./config/pmail.db')
   const [dbError, setDbError] = React.useState('')
 
-  // 第 4 步：证书
-  const [sslMode, setSslMode] = React.useState<'auto' | 'manual'>('auto')
-  const [sslChallenge, setSslChallenge] = React.useState<'http' | 'dns'>('http')
-  const [sslPort, setSslPort] = React.useState(80)
-  const [keyPath, setKeyPath] = React.useState('./config/ssl/private.key')
-  const [crtPath, setCrtPath] = React.useState('./config/ssl/public.crt')
-  const [sslParams, setSslParams] = React.useState<DnsRecord[]>([])
-  /** 证书签发进度（后端异步跑，这里轮询） */
-  const [certPhase, setCertPhase] = React.useState<
-    'idle' | 'running' | 'need_txt' | 'ok' | 'ok_fallback' | 'failed'
-  >('idle')
+  // 第 4 步：证书（从飞牛加载 / 粘贴自有证书）
+  const [sslMode, setSslMode] = React.useState<'fnos' | 'paste'>('fnos')
+  const [certBusy, setCertBusy] = React.useState(false)
+  const [certInfo, setCertInfo] = React.useState<CertResult | null>(null)
   const [certError, setCertError] = React.useState('')
+  const [keyPem, setKeyPem] = React.useState('')
+  const [crtPem, setCrtPem] = React.useState('')
 
   // 第 5 步：管理员
   const [account, setAccount] = React.useState('admin')
@@ -215,52 +200,97 @@ export default function SetupPage() {
     void probe()
   }, [probe])
 
-  const loadDns = React.useCallback(
-    async (recheck: boolean) => {
-      setDnsLoading(true)
-      try {
-        // 后端生成记录时会请求外网取公网 IP，容器没有出网能力时会一直挂着，
-        // 所以这里单独收紧超时，超时就提示而不是让用户干等。
-        const data = await setupPost<DnsInfo>({ action: 'get', step: 'dns' }, 25_000)
-        if (data && typeof data === 'object') setDnsInfos(data)
-        setDnsRechecked(recheck)
-      } catch (error) {
-        const timedOut = (error as { code?: string })?.code === 'ECONNABORTED'
-        toast.error(
-          timedOut ? t('setup.dns.timeout') : t('setup.failed', { message: errorText(error) }),
-        )
-      } finally {
-        setDnsLoading(false)
-      }
-    },
-    [t],
-  )
-
-  const loadSslConfig = React.useCallback(async () => {
+  const loadDns = React.useCallback(async () => {
+    setDnsLoading(true)
     try {
-      const data = await setupPost<SslConfig>({ action: 'get', step: 'ssl' })
-      if (data) {
-        if (data.type === '1') {
-          setSslMode('manual')
-        } else {
-          setSslMode('auto')
-          setSslChallenge(data.type === '2' ? 'dns' : 'http')
-        }
-        if (typeof data.port === 'number' && data.port > 0) setSslPort(data.port)
-      }
+      // 记录完全由后端在本地拼出来（不再去外网查公网 IP），所以不需要长超时
+      const data = await setupPost<DnsInfo>({ action: 'get', step: 'dns' }, 15_000)
+      if (data && typeof data === 'object') setDnsInfos(data)
     } catch (error) {
       toast.error(t('setup.failed', { message: errorText(error) }))
+    } finally {
+      setDnsLoading(false)
     }
   }, [t])
 
-  const loadSslParams = React.useCallback(async () => {
+  // 进到 DNS 这一步就自动把记录铺出来（从后面返回上一步再进来也会重新拉一次）
+  const dnsTried = React.useRef(false)
+  React.useEffect(() => {
+    if (step !== 1) {
+      dnsTried.current = false
+      return
+    }
+    if (phase !== 'ready' || dnsTried.current) return
+    dnsTried.current = true
+    void loadDns()
+  }, [step, phase, loadDns])
+
+  /** 复制：内网是 http，navigator.clipboard 在非安全上下文里不可用，得留个兜底 */
+  const copyText = async (key: string, text: string) => {
     try {
-      const data = await setupPost<DnsRecord[]>({ action: 'getParams', step: 'ssl' })
-      setSslParams(Array.isArray(data) ? data : [])
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const holder = document.createElement('textarea')
+        holder.value = text
+        holder.style.position = 'fixed'
+        holder.style.opacity = '0'
+        document.body.appendChild(holder)
+        holder.select()
+        document.execCommand('copy')
+        document.body.removeChild(holder)
+      }
+      setCopiedKey(key)
+      window.setTimeout(() => setCopiedKey((current) => (current === key ? '' : current)), 1500)
+    } catch {
+      toast.error(t('setup.dns.copyFailed'))
+    }
+  }
+
+  /** 从飞牛加载证书：后端读 /usr/trim/var/trim_connect/ssls 里最新的那一套 */
+  const loadFnOsCert = React.useCallback(async () => {
+    setCertBusy(true)
+    setCertError('')
+    try {
+      const info = await setupPost<CertResult>({ action: 'loadFnOsCert', step: 'ssl' })
+      setCertInfo(info)
+      if (!info.found) setCertError(info.message || t('setup.ssl.failedHint'))
+      return info
     } catch (error) {
-      toast.error(t('setup.failed', { message: errorText(error) }))
+      setCertInfo(null)
+      setCertError(errorText(error))
+      return null
+    } finally {
+      setCertBusy(false)
     }
   }, [t])
+
+  /** 粘贴自有证书：后端校验私钥与证书是否配对，然后写进 config/ssl */
+  const savePemCert = React.useCallback(async () => {
+    if (!keyPem.trim() || !crtPem.trim()) {
+      toast.error(t('setup.ssl.needBoth'))
+      return null
+    }
+    setCertBusy(true)
+    setCertError('')
+    try {
+      const info = await setupPost<CertResult>({
+        action: 'uploadCert',
+        step: 'ssl',
+        key: keyPem,
+        crt: crtPem,
+      })
+      setCertInfo(info)
+      if (!info.found) setCertError(info.message || t('setup.ssl.failedHint'))
+      return info
+    } catch (error) {
+      setCertInfo(null)
+      setCertError(errorText(error))
+      return null
+    } finally {
+      setCertBusy(false)
+    }
+  }, [keyPem, crtPem, t])
 
   const loadAdminState = React.useCallback(async () => {
     try {
@@ -274,9 +304,6 @@ export default function SetupPage() {
       toast.error(t('setup.failed', { message: errorText(error) }))
     }
   }, [t])
-
-  /** ssl_type 是字符串：1 = 用户证书、0 = 自动 HTTP、2 = 自动 DNS */
-  const sslType = sslMode === 'manual' ? '1' : sslChallenge === 'dns' ? '2' : '0'
 
   const finish = async () => {
     if (!adminReady) {
@@ -294,74 +321,32 @@ export default function SetupPage() {
         account: account.trim(),
         password,
       })
-      // 记住已经建过管理员，后面证书步骤失败重试时不要重复插入用户
+      // 记住已经建过管理员，后面重试时不要重复插入用户
       setAdminReady(true)
     }
 
-    // 证书这一步是唯一会触发「安装完成」的调用，必须放最后。
-    //
-    // 手动证书：后端校验文件后同步收尾。
-    // 自动证书：后端改成异步签发了（原来同步阻塞到 ACME 结束，前端必然超时），
-    //          这里先拿到 running，再轮询 action=status 直到出结果；
-    //          DNS 挑战会先把 TXT 记录吐出来，主人加上后后端自己检测通过。
-    setCertPhase('running')
-    setCertError('')
-
-    if (sslMode === 'manual') {
-      try {
-        await setupPost<unknown>({
-          action: 'set',
-          step: 'ssl',
-          ssl_type: '1',
-          key_path: keyPath.trim(),
-          crt_path: crtPath.trim(),
-        })
-      } catch (error) {
-        setCertPhase('failed')
-        setCertError(errorText(error))
+    // 证书还没就位就先落地（后端幂等，重复调用只会覆盖同一份文件）
+    if (!certInfo?.found) {
+      const info = sslMode === 'fnos' ? await loadFnOsCert() : await savePemCert()
+      if (!info?.found) {
         toast.error(t('setup.ssl.failed'), t('setup.ssl.failedHint'))
         return
       }
-    } else {
-      try {
-        let status = await setupPost<CertStatus>({
-          action: 'set',
-          step: 'ssl',
-          ssl_type: sslType,
-          key_path: keyPath.trim(),
-          crt_path: crtPath.trim(),
-        })
+    }
 
-        const deadline = Date.now() + 15 * 60 * 1000
-        while (Date.now() < deadline) {
-          if (status.state === 'ok' || status.state === 'ok_fallback' || status.state === 'failed') break
-          if (status.records && status.records.length > 0) {
-            setSslParams(status.records)
-            setCertPhase('need_txt')
-          }
-          await new Promise((resolve) => setTimeout(resolve, 2000))
-          status = await setupPost<CertStatus>({ action: 'status', step: 'ssl' })
-        }
-
-        if (status.state === 'failed') {
-          setCertPhase('failed')
-          setCertError(status.error || '')
-          toast.error(t('setup.ssl.failed'), t('setup.ssl.failedHint'))
-          return
-        }
-        if (status.state === 'ok_fallback') {
-          setCertPhase('ok_fallback')
-          setCertError(status.error || '')
-          toast.info(t('setup.ssl.fallback'), status.error || undefined)
-        } else {
-          setCertPhase('ok')
-        }
-      } catch (error) {
-        setCertPhase('failed')
-        setCertError(errorText(error))
-        toast.error(t('setup.ssl.failed'), t('setup.ssl.failedHint'))
+    // 收尾：后端会自己检查「域名 / 数据库 / 管理员 / 证书」是不是都齐了，
+    // 缺任何一项都不会把安装标记完成（否则会进得去登录页却登不上）
+    try {
+      const res = await setupPost<FinishResult>({ action: 'finish', step: 'ssl' })
+      if (!res.finished) {
+        setCertError(t('setup.ssl.finishBlocked', { reason: res.reason || '' }))
+        toast.error(t('setup.ssl.failed'), res.reason || t('setup.ssl.failedHint'))
         return
       }
+    } catch (error) {
+      setCertError(errorText(error))
+      toast.error(t('setup.ssl.failed'), errorText(error))
+      return
     }
 
     const installed = await waitInstalled(30_000)
@@ -389,7 +374,7 @@ export default function SetupPage() {
           multi_domain: extraDomains.map((item) => item.trim()).filter(Boolean).join(','),
         })
         setStep(1)
-        await loadDns(false)
+        await loadDns()
       } else if (step === 1) {
         setStep(2)
       } else if (step === 2) {
@@ -401,7 +386,6 @@ export default function SetupPage() {
         setDbError('')
         await setupPost<unknown>({ action: 'set', step: 'database', db_type: dbType, db_dsn: dsn })
         setStep(3)
-        await loadSslConfig()
       } else if (step === 3) {
         setStep(4)
         await loadAdminState()
@@ -414,9 +398,6 @@ export default function SetupPage() {
       setBusy(false)
     }
   }
-
-  const statusOf = (record: DnsRecord): DnsStatus =>
-    dnsLoading ? 'pending' : recordStatus(record, dnsRechecked)
 
   const hasEmptyHost = Object.values(dnsInfos).some((records) =>
     records.some((record) => !record.host),
@@ -552,108 +533,136 @@ export default function SetupPage() {
 
             {step === 1 ? (
               <>
-                <div className="mb-5 flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-[15.5px] font-[650] tracking-[-0.01em]">
-                      {t('setup.dns.title')}
-                    </h2>
-                    <p className="mt-1 text-[12.5px] leading-relaxed text-fg-muted">
-                      {t('setup.dns.desc')}
-                    </p>
+                <div className="mb-4">
+                  <h2 className="text-[15.5px] font-[650] tracking-[-0.01em]">
+                    {t('setup.dns.title')}
+                  </h2>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-fg-muted">
+                    {t('setup.dns.desc')}
+                  </p>
+                </div>
+
+                {/* 公网 IP：纯本地替换，填完立刻反映到下面的 A 记录，不需要联网也不用刷新 */}
+                <div className="mb-4 rounded-xl border border-border-base bg-surface-2 px-3.5 py-3">
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start">
+                    <div className="min-w-0 flex-1">
+                      <Field
+                        label={t('setup.dns.publicIP')}
+                        hint={t('setup.dns.publicIPHint')}
+                        className="mb-0"
+                      >
+                        <Input
+                          value={publicIP}
+                          onChange={(event) => setPublicIP(event.target.value)}
+                          placeholder="1.2.3.4"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </Field>
+                    </div>
+                    <div className="flex flex-none items-center gap-1.5 pb-0.5 text-[11.5px] text-fg-subtle sm:pt-6">
+                      {dnsLoading ? (
+                        <>
+                          <Spinner className="h-3.5 w-3.5" />
+                          {t('setup.dns.loading')}
+                        </>
+                      ) : (
+                        <span>{t('setup.dns.offline')}</span>
+                      )}
+                    </div>
                   </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={dnsLoading}
-                    onClick={() => void loadDns(true)}
-                  >
-                    <RefreshCw className={cn('h-3.5 w-3.5', dnsLoading && 'animate-spin')} />
-                    {t('setup.dns.check')}
-                  </Button>
                 </div>
 
                 {Object.keys(dnsInfos).length === 0 ? (
                   <EmptyState
-                    icon={<RefreshCw className="h-5 w-5" />}
-                    title={t('common.empty')}
-                    description={t('setup.dns.desc')}
+                    icon={<Loader2 className="h-5 w-5" />}
+                    title={dnsLoading ? t('setup.dns.loading') : t('common.empty')}
+                    description={t('setup.dns.emptyHint')}
                     className="py-10"
                   />
                 ) : (
-                  <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-4">
                     {Object.entries(dnsInfos).map(([domain, records]) => (
-                      <div key={domain}>
-                        <div className="mb-2 flex items-center gap-2">
+                      <section
+                        key={domain}
+                        className="overflow-hidden rounded-xl border border-border-base"
+                      >
+                        <header className="flex items-center gap-2 bg-surface-2 px-3.5 py-2.5">
                           <span className="truncate text-[13px] font-[650]">{domain}</span>
-                          <Badge tone="outline">{records.length}</Badge>
-                        </div>
-                        <div className="overflow-hidden rounded-xl border border-border-base">
-                          <table className="w-full border-collapse text-[12.5px]">
-                            <thead>
-                              <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.04em] text-fg-subtle">
-                                <th className="px-3 py-2 font-[650]">{t('setup.dns.type')}</th>
-                                <th className="px-3 py-2 font-[650]">{t('setup.dns.host')}</th>
-                                <th className="px-3 py-2 font-[650]">{t('setup.dns.value')}</th>
-                                <th className="px-3 py-2 font-[650]">{t('setup.dns.status')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {records.map((record, index) => {
-                                const status = statusOf(record)
-                                return (
-                                  <tr
-                                    key={`${record.type}-${record.host}-${index}`}
-                                    className="border-t border-border-base"
-                                  >
-                                    <td className="px-3 py-2 font-mono text-[11.5px] text-fg-muted">
-                                      {record.type}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      {record.host ? (
-                                        <span className="font-mono text-[11.5px]">{record.host}</span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1">
-                                          <span className="font-mono text-[11.5px]">@</span>
-                                          <Tooltip label={t('setup.dns.rootHint')}>
-                                            <span className="cursor-help text-fg-subtle">?</span>
-                                          </Tooltip>
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <div className="flex items-start gap-1.5">
-                                        <span className="min-w-0 break-all font-mono text-[11.5px] text-fg-muted">
-                                          {record.value}
-                                        </span>
-                                        {record.tips ? (
-                                          <Tooltip label={record.tips}>
-                                            <span className="flex-none cursor-help text-fg-subtle">?</span>
-                                          </Tooltip>
-                                        ) : null}
-                                      </div>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <Badge tone={DNS_STATUS[status].tone}>
-                                        {t(DNS_STATUS[status].label)}
-                                      </Badge>
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+                          <Badge tone="outline">
+                            {t('setup.dns.records', { count: records.length })}
+                          </Badge>
+                        </header>
+                        <table className="w-full table-fixed border-collapse text-[12.5px]">
+                          <colgroup>
+                            <col className="w-[62px]" />
+                            <col className="w-[34%]" />
+                            <col />
+                          </colgroup>
+                          <thead>
+                            <tr className="border-t border-border-base text-left text-[11px] text-fg-subtle">
+                              <th className="px-3 py-1.5 font-[650]">{t('setup.dns.type')}</th>
+                              <th className="px-3 py-1.5 font-[650]">{t('setup.dns.host')}</th>
+                              <th className="px-3 py-1.5 font-[650]">{t('setup.dns.value')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {records.map((record, index) => {
+                              const rowKey = `${domain}-${index}`
+                              const value =
+                                record.type === 'A' && publicIP.trim()
+                                  ? publicIP.trim()
+                                  : record.value
+                              return (
+                                <tr
+                                  key={rowKey}
+                                  className="border-t border-border-base align-top transition-colors hover:bg-surface-2"
+                                >
+                                  <td className="px-3 py-2 font-mono text-[11px] text-fg-muted">
+                                    {record.type}
+                                  </td>
+                                  <td className="break-all px-3 py-2 font-mono text-[11.5px]">
+                                    {record.host ? record.host : '@'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-start gap-2">
+                                      <span className="min-w-0 flex-1 break-all font-mono text-[11.5px] leading-relaxed text-fg-muted">
+                                        {value}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => void copyText(rowKey, value)}
+                                        title={t('setup.dns.copy')}
+                                        aria-label={t('setup.dns.copy')}
+                                        className="grid h-6 w-6 flex-none place-items-center rounded-md text-fg-subtle transition-colors hover:bg-surface-3 hover:text-primary"
+                                      >
+                                        {copiedKey === rowKey ? (
+                                          <Check className="h-3.5 w-3.5 text-success" />
+                                        ) : (
+                                          <Copy className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </section>
                     ))}
 
-                    {hasEmptyHost ? (
+                    <div className="flex flex-col gap-1">
+                      {hasEmptyHost ? (
+                        <p className="text-[11.5px] leading-relaxed text-fg-subtle">
+                          {t('setup.dns.rootHint')}
+                        </p>
+                      ) : null}
                       <p className="text-[11.5px] leading-relaxed text-fg-subtle">
-                        {t('setup.dns.rootHint')}
+                        {t('setup.dns.dkimHint')}
                       </p>
-                    ) : null}
-                    <p className="text-[11.5px] leading-relaxed text-fg-subtle">
-                      {t('setup.dns.dkimHint')}
-                    </p>
+                    </div>
                   </div>
                 )}
               </>
@@ -701,92 +710,114 @@ export default function SetupPage() {
 
             {step === 3 ? (
               <>
-                <CardHead title={t('setup.ssl.title')} />
+                <CardHead title={t('setup.ssl.title')} desc={t('setup.ssl.desc')} />
                 <div className="flex flex-col gap-2.5">
                   <ModeOption
-                    active={sslMode === 'auto'}
-                    title={t('setup.ssl.auto')}
-                    onSelect={() => setSslMode('auto')}
+                    active={sslMode === 'fnos'}
+                    title={t('setup.ssl.fnos')}
+                    onSelect={() => {
+                      setSslMode('fnos')
+                      setCertInfo(null)
+                      setCertError('')
+                    }}
                   />
                   <ModeOption
-                    active={sslMode === 'manual'}
-                    title={t('setup.ssl.manual')}
-                    onSelect={() => setSslMode('manual')}
+                    active={sslMode === 'paste'}
+                    title={t('setup.ssl.paste')}
+                    onSelect={() => {
+                      setSslMode('paste')
+                      setCertInfo(null)
+                      setCertError('')
+                    }}
                   />
                 </div>
 
-                {sslMode === 'auto' ? (
+                {sslMode === 'fnos' ? (
                   <div className="mt-5">
-                    <Field label={t('setup.ssl.challenge')}>
-                      <Select
-                        value={sslChallenge}
-                        onChange={(event) => {
-                          const next = event.target.value === 'dns' ? 'dns' : 'http'
-                          setSslChallenge(next)
-                          if (next === 'dns') void loadSslParams()
-                        }}
-                      >
-                        <option value="http">{t('setup.ssl.http')}</option>
-                        <option value="dns">{t('setup.ssl.dns')}</option>
-                      </Select>
-                    </Field>
-
-                    {sslChallenge === 'dns' ? (
-                      <Field
-                        label={t('setup.ssl.provider')}
-                        hint={sslParams.length === 0 ? t('setup.ssl.waitDesc') : undefined}
-                      >
-                        {sslParams.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-border-strong bg-surface-2 px-3 py-4 text-center text-[12px] text-fg-subtle">
-                            {t('setup.ssl.wait')}
-                          </div>
-                        ) : (
-                          <ul className="flex flex-col gap-1.5 rounded-xl border border-border-base bg-surface-2 p-3">
-                            {sslParams.map((item, index) => (
-                              <li
-                                key={`${item.type}-${item.host}-${index}`}
-                                className="flex items-start gap-2 font-mono text-[11.5px]"
-                              >
-                                <span className="w-14 flex-none text-fg-subtle">{item.type}</span>
-                                <span className="w-36 flex-none truncate">{item.host || '@'}</span>
-                                <span className="min-w-0 flex-1 break-all text-fg-muted">
-                                  {item.value}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </Field>
-                    ) : null}
-
-                    {sslPort !== 80 ? (
-                      <p className="mt-1 rounded-xl border border-warning/35 bg-warning/10 px-3 py-2 text-[12px] leading-relaxed text-warning">
-                        {t('setup.ssl.portWarn')}
-                      </p>
-                    ) : null}
+                    <p className="mb-3 text-[12px] leading-relaxed text-fg-muted">
+                      {t('setup.ssl.fnosDesc')}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={certBusy}
+                      onClick={() => void loadFnOsCert()}
+                    >
+                      {certBusy ? (
+                        <Spinner className="h-3.5 w-3.5" />
+                      ) : (
+                        <HardDriveDownload className="h-3.5 w-3.5" />
+                      )}
+                      {certBusy ? t('setup.ssl.loading') : t('setup.ssl.load')}
+                    </Button>
                   </div>
                 ) : (
                   <div className="mt-5">
-                    <Field label={t('setup.ssl.keyPath')}>
-                      <Input
-                        value={keyPath}
-                        onChange={(event) => setKeyPath(event.target.value)}
-                        placeholder="./config/ssl/private.key"
-                        autoComplete="off"
+                    <p className="mb-3 text-[12px] leading-relaxed text-fg-muted">
+                      {t('setup.ssl.pasteDesc')}
+                    </p>
+                    <Field label={t('setup.ssl.keyPem')}>
+                      <Textarea
+                        rows={5}
+                        value={keyPem}
+                        onChange={(event) => setKeyPem(event.target.value)}
+                        placeholder="-----BEGIN PRIVATE KEY-----"
                         spellCheck={false}
+                        autoComplete="off"
+                        className="font-mono text-[11.5px] leading-relaxed"
                       />
                     </Field>
-                    <Field label={t('setup.ssl.crtPath')}>
-                      <Input
-                        value={crtPath}
-                        onChange={(event) => setCrtPath(event.target.value)}
-                        placeholder="./config/ssl/public.crt"
-                        autoComplete="off"
+                    <Field label={t('setup.ssl.crtPem')}>
+                      <Textarea
+                        rows={5}
+                        value={crtPem}
+                        onChange={(event) => setCrtPem(event.target.value)}
+                        placeholder="-----BEGIN CERTIFICATE-----"
                         spellCheck={false}
+                        autoComplete="off"
+                        className="font-mono text-[11.5px] leading-relaxed"
                       />
                     </Field>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={certBusy}
+                      onClick={() => void savePemCert()}
+                    >
+                      {certBusy ? (
+                        <Spinner className="h-3.5 w-3.5" />
+                      ) : (
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                      )}
+                      {t('setup.ssl.save')}
+                    </Button>
                   </div>
                 )}
+
+                {certInfo?.found ? (
+                  <div className="mt-4 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2.5">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-success" />
+                    <div className="min-w-0 text-[12px] leading-relaxed">
+                      <p className="font-[600] text-fg">
+                        {t('setup.ssl.loaded', {
+                          domain: certInfo.domain || '-',
+                          expire: certInfo.expire || '-',
+                        })}
+                      </p>
+                      {certInfo.source ? (
+                        <p className="mt-0.5 break-all font-mono text-[11px] text-fg-subtle">
+                          {certInfo.source}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {certError ? (
+                  <p className="mt-3 break-all rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
+                    {certError}
+                  </p>
+                ) : null}
               </>
             ) : null}
 
@@ -828,24 +859,6 @@ export default function SetupPage() {
               </>
             ) : null}
           </div>
-
-          {/* 证书签发进度：自动模式下后端异步跑，这里实时显示 */}
-          {certPhase !== 'idle' ? (
-            <div className="mx-6 mb-3 rounded-xl border border-border-base bg-surface-2 px-4 py-3">
-              <p className="text-[12.5px] font-[600]">
-                {certPhase === 'running' ? t('setup.ssl.running') : null}
-                {certPhase === 'need_txt' ? t('setup.ssl.needTxt') : null}
-                {certPhase === 'ok' ? t('setup.ssl.ok') : null}
-                {certPhase === 'ok_fallback' ? t('setup.ssl.fallback') : null}
-                {certPhase === 'failed' ? t('setup.ssl.failed') : null}
-              </p>
-              {certError ? (
-                <p className="mt-1 break-all text-[11.5px] leading-relaxed text-fg-subtle">
-                  {certError}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
 
           {/* 底部固定的上一步 / 下一步 */}
           <div className="sticky bottom-0 flex items-center justify-between gap-3 rounded-b-[18px] border-t border-border-base bg-surface px-6 py-3.5">

@@ -63,27 +63,6 @@ export const Textarea = React.forwardRef<
   )
 })
 
-/** 原生 select 的统一外观（避免为了一个下拉引入整套组件） */
-export const Select = React.forwardRef<
-  HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement>
->(function Select({ className, children, ...props }, ref) {
-  return (
-    <select
-      ref={ref}
-      className={cn(
-        'h-10 w-full appearance-none rounded-[10px] border border-border-base bg-surface px-3 pr-9 text-[13.5px] text-fg',
-        'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%238b93a3\' stroke-width=\'2\' stroke-linecap=\'round\'%3E%3Cpath d=\'m6 9.5 6 6 6-6\'/%3E%3C/svg%3E")] bg-[length:16px_16px] bg-[right_10px_center] bg-no-repeat',
-        'focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-[var(--ring)]',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </select>
-  )
-})
-
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label

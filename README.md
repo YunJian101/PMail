@@ -69,6 +69,8 @@ fpk 侧的几个约定（都是踩过的坑）：
 - 数据目录用 `${TRIM_PKGVAR}`（`/vol1/@appdata/pmail`），并通过 `PMail_ROOT` 告诉程序，别依赖当前目录。
 - 邮件协议端口从 `ports.env` 读（`PMAIL_PORT_SMTP/SMTPS/SUBMISSION/IMAP/POP3/POP3S`），端口冲突改这里后重启应用即可；Web 端口走 `config.json` 的 `httpPort`。
 - 证书步骤直接读飞牛自己管的证书目录（`/usr/trim/var/trim_connect/ssls`），按内容扫 PEM 并用 `tls.X509KeyPair` 验配对，不依赖固定文件名。
+- 应用图标（`ICON.PNG` / `ICON_256.PNG` / `app/ui/images/icon_*.png`）由 `tools/make-icons.py` 生成：信封 + `#4F83FF→#0EA5C6` 渐变，与 `web/public/favicon.svg`、登录页 logo 同一套几何；预览见 `tools/icons-preview/preview-sheet.png`。
+- 卸载应用**不会**删除 `/vol1/@appdata/pmail`，重装后会沿用旧配置；想要干净的安装向导，先把该目录改名或删掉再装。
 
 ## 开发与构建
 

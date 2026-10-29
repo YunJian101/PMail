@@ -1,0 +1,22 @@
+#!/bin/bash
+# 安装后：给二进制加执行权限，装上改端口的快捷命令
+BIN="${TRIM_APPDEST}/pmail"
+chmod +x "${BIN}" 2>/dev/null
+chmod +x "${TRIM_APPDEST}/cmd"/* 2>/dev/null
+
+cat > /usr/local/bin/pmail-port <<'EOF'
+#!/bin/bash
+# 改端口：pmail-port imap 9993
+# 可用名字：smtp smtps submission imap pop3 pop3s
+[ $# -ne 2 ] && { echo "usage: pmail-port {smtp|smtps|submission|imap|pop3|pop3s} <port>"; exit 1; }
+NAME=$(echo "$1" | tr 'a-z' 'A-Z')
+ENV_FILE="${TRIM_PKGVAR}/ports.env"
+[ -r "${ENV_FILE}" ] || { echo "missing ${ENV_FILE}"; exit 1; }
+sed -i "/^PMAIL_PORT_${NAME}=/d" "${ENV_FILE}"
+echo "PMAIL_PORT_${NAME}=$2" >> "${ENV_FILE}"
+echo "已设置 ${NAME} -> $2，重启应用后生效"
+EOF
+chmod +x /usr/local/bin/pmail-port
+
+echo "install ok: $(date)" >> "${TRIM_PKGVAR}/install.log"
+exit 0

@@ -1,0 +1,145 @@
+#!/bin/bash
+# PMail lifecycle: start / stop / status
+#
+# 端口来源：${TRIM_PKGVAR}/ports.env（安装时生成，之后可随时改）
+# 数据目录：${TRIM_PKGVAR}（config.json / dkim / ssl / pmail.db 都在这里）
+#
+# 约定（飞牛靠这个判断应用状态，别改）：
+#   start  -> 成功 exit 0，失败 exit 1，并把原因写进 ${TRIM_TEMP_LOGFILE}
+#   stop   -> exit 0
+#   status -> 在跑 exit 0，没在跑 exit 3
+
+BIN="${TRIM_APPDEST}/pmail"
+VAR="${TRIM_PKGVAR}"
+PID_FILE="${VAR}/pmail.pid"
+LOG_FILE="${VAR}/pmail.log"
+ENV_FILE="${VAR}/ports.env"
+
+log_msg() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}"; }
+
+# 失败原因同时给飞牛界面看一份（只在设置 TRIM_TEMP_LOGFILE 时）
+fail_msg() {
+    echo "$1" >> "${LOG_FILE}"
+    if [ -n "${TRIM_TEMP_LOGFILE}" ]; then
+        echo "$1" >> "${TRIM_TEMP_LOGFILE}"
+        tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}" 2>/dev/null
+    fi
+}
+
+running() {
+    if [ -r "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then return 0; fi
+    fi
+    pgrep -f "${BIN}" > /dev/null 2>&1 && return 0
+    return 1
+}
+
+# 从飞牛自己的证书目录同步（飞牛会给域名自动续期，这里跟着走）
+sync_cert() {
+    SSL_DIR="${VAR}/config/ssl"
+    mkdir -p "${SSL_DIR}"
+    SRC=$(ls -dt /usr/trim/var/trim_connect/ssls/*/ 2>/dev/null | head -n 1)
+    [ -z "${SRC}" ] && return 0
+    KEY=$(ls -t "${SRC}"*.key 2>/dev/null | head -n 1)
+    CRT=$(ls -t "${SRC}"*.crt 2>/dev/null | grep -v issuer | head -n 1)
+    [ -z "${KEY}" ] && [ -f "${SRC}privkey.pem" ] && KEY="${SRC}privkey.pem"
+    [ -z "${CRT}" ] && [ -f "${SRC}fullchain.pem" ] && CRT="${SRC}fullchain.pem"
+    if [ -n "${KEY}" ] && [ -n "${CRT}" ]; then
+        # 已经由 PMail 自己管证书（用户证书模式）时不要覆盖，避免把手动粘贴的证书顶掉
+        if [ -f "${SSL_DIR}/private.key" ] && [ ! -L "${SSL_DIR}/private.key" ]; then
+            log_msg "cert already managed by pmail, skip fnos sync"
+            return 0
+        fi
+        ln -sf "${KEY}" "${SSL_DIR}/private.key"
+        ln -sf "${CRT}" "${SSL_DIR}/public.crt"
+        log_msg "cert synced from ${SRC}"
+    fi
+}
+
+start_app() {
+    sync_cert
+    if running; then
+        log_msg "already running"
+        return 0
+    fi
+    mkdir -p "${VAR}"
+    chmod +x "${BIN}" 2>/dev/null
+
+    if [ ! -x "${BIN}" ]; then
+        fail_msg "binary not executable: ${BIN}"
+        return 1
+    fi
+
+    # 端口：先给默认值，再用 ports.env 覆盖
+    export PMAIL_PORT_SMTP=25
+    export PMAIL_PORT_SMTPS=465
+    export PMAIL_PORT_SUBMISSION=587
+    export PMAIL_PORT_IMAP=993
+    export PMAIL_PORT_POP3=110
+    export PMAIL_PORT_POP3S=995
+    [ -r "${ENV_FILE}" ] && . "${ENV_FILE}"
+
+    # PMail 用「可执行文件所在目录」当 ROOT_PATH，这里显式指到持久目录
+    export PMail_ROOT="${VAR}/"
+    export setup_port="${PMAIL_SETUP_PORT:-8080}"
+
+    log_msg "starting: web port from config.json, mail ports ${PMAIL_PORT_SMTP}/${PMAIL_PORT_SMTPS}/${PMAIL_PORT_SUBMISSION}/${PMAIL_PORT_IMAP}/${PMAIL_PORT_POP3}/${PMAIL_PORT_POP3S}"
+    cd "${VAR}" || { fail_msg "cannot cd ${VAR}"; return 1; }
+    nohup "${BIN}" >> "${LOG_FILE}" 2>&1 &
+    echo $! > "${PID_FILE}"
+
+    i=0
+    while [ $i -lt 15 ]; do
+        sleep 1
+        if running; then
+            log_msg "started pid $(cat "${PID_FILE}")"
+            return 0
+        fi
+        i=$((i + 1))
+    done
+
+    fail_msg "pmail failed to start, see ${LOG_FILE}"
+    return 1
+}
+
+stop_app() {
+    if [ -r "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if [ -n "${pid}" ]; then
+            kill -TERM "${pid}" 2>/dev/null
+            i=0
+            while kill -0 "${pid}" 2>/dev/null && [ $i -lt 10 ]; do sleep 1; i=$((i + 1)); done
+            kill -KILL "${pid}" 2>/dev/null
+        fi
+    fi
+    pkill -f "${BIN}" 2>/dev/null
+    rm -f "${PID_FILE}"
+    log_msg "stopped"
+    return 0
+}
+
+case "$1" in
+    start)
+        if start_app; then exit 0; fi
+        exit 1
+        ;;
+    stop)
+        stop_app
+        exit 0
+        ;;
+    restart)
+        stop_app
+        sleep 1
+        if start_app; then exit 0; fi
+        exit 1
+        ;;
+    status)
+        if running; then exit 0; fi
+        exit 3
+        ;;
+    *)
+        echo "usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

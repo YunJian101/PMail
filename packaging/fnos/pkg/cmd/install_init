@@ -1,0 +1,39 @@
+#!/bin/bash
+# 安装前：准备目录、写入默认端口文件、预置 config.json
+set -e
+
+mkdir -p "${TRIM_PKGVAR}/config/dkim" "${TRIM_PKGVAR}/config/ssl"
+
+ENV_FILE="${TRIM_PKGVAR}/ports.env"
+if [ ! -f "${ENV_FILE}" ]; then
+    cat > "${ENV_FILE}" <<'EOF'
+# PMail 端口配置：改完重启应用后生效
+# 默认都是邮件协议标准端口，冲突了就改这里
+PMAIL_PORT_SMTP=25
+PMAIL_PORT_SMTPS=465
+PMAIL_PORT_SUBMISSION=587
+PMAIL_PORT_IMAP=993
+PMAIL_PORT_POP3=110
+PMAIL_PORT_POP3S=995
+# Web 端口在 config/config.json 的 httpPort / httpsPort
+EOF
+fi
+
+# 首次安装：预置 config.json，Web 端口用 8080（飞牛自己占着 80/443）
+CFG="${TRIM_PKGVAR}/config/config.json"
+if [ ! -f "${CFG}" ]; then
+    cat > "${CFG}" <<JSON
+{"logLevel":"info","domain":"","domains":[],"webDomain":"","dkimPrivateKeyPath":"${TRIM_PKGVAR}/config/dkim/dkim.priv","sslType":"1","SSLPrivateKeyPath":"${TRIM_PKGVAR}/config/ssl/private.key","SSLPublicKeyPath":"${TRIM_PKGVAR}/config/ssl/public.crt","dbDSN":"","dbType":"sqlite","httpsEnabled":2,"httpPort":8080,"httpsPort":8443,"spamFilterLevel":0,"isInit":false}
+JSON
+fi
+
+# 记一条端口占用情况，方便用户第一时间发现问题
+LOG="${TRIM_PKGVAR}/install.log"
+: > "${LOG}"
+echo "install_init $(date)" >> "${LOG}"
+for p in 25 465 587 993 110 995 8080; do
+    if ss -ltn 2>/dev/null | grep -q ":${p} "; then
+        echo "WARN port ${p} already in use" >> "${LOG}"
+    fi
+done
+exit 0

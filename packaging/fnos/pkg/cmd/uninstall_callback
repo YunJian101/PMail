@@ -1,0 +1,3 @@
+#!/bin/bash
+rm -f /usr/local/bin/pmail-port 2>/dev/null
+exit 0

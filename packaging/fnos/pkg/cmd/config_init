@@ -1,0 +1,5 @@
+#!/bin/bash
+# 配置页打开前：把当前端口回显出去（fnOS 会把这里的输出展示给用户）
+ENV_FILE="${TRIM_PKGVAR}/ports.env"
+[ -r "${ENV_FILE}" ] && cat "${ENV_FILE}"
+exit 0

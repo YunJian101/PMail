@@ -1,0 +1,13 @@
+#!/bin/bash
+# 卸载前：停服务
+BIN="${TRIM_APPDEST}/pmail"
+PID_FILE="${TRIM_PKGVAR}/pmail.pid"
+if [ -r "${PID_FILE}" ]; then
+    pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+    [ -n "${pid}" ] && kill -TERM "${pid}" 2>/dev/null
+    sleep 2
+    kill -KILL "${pid}" 2>/dev/null
+fi
+pkill -f "${BIN}" 2>/dev/null
+rm -f "${PID_FILE}"
+exit 0

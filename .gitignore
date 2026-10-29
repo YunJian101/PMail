@@ -1,6 +1,9 @@
 # 依赖与构建产物
 node_modules/
-dist/
+/web/dist/
+# 前端产物由构建脚本生成；留个空占位让 go:embed 在没有产物时也能编译
+/server/listen/http_server/dist/*
+!/server/listen/http_server/dist/.gitkeep
 *.local
 
 # Go 产物
@@ -31,3 +34,10 @@ tmp-*.db
 
 # 本地环境变量（.env.example 才是模板）
 .env
+
+# 飞牛 fpk 产物（tools/build-fpk.ps1 生成）
+/release/
+packaging/fnos/pkg/app/pmail
+packaging/fnos/pkg/*.fpk
+/build/
+/.tmp/

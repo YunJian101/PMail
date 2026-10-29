@@ -1,0 +1,10 @@
+#!/bin/bash
+# 配置页提交后：把 PMAIL_PORT_* 写回 ports.env 并重启
+ENV_FILE="${TRIM_PKGVAR}/ports.env"
+[ -r "${ENV_FILE}" ] || exit 0
+env | grep '^PMAIL_PORT_' | while IFS='=' read -r k v; do
+    sed -i "/^${k}=/d" "${ENV_FILE}"
+    echo "${k}=${v}" >> "${ENV_FILE}"
+done
+"${TRIM_APPDEST}/cmd/main" restart > /dev/null 2>&1
+exit 0

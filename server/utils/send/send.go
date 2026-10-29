@@ -25,6 +25,13 @@ type mxDomain struct {
 	mxHost string
 }
 
+// mxAddr 拼「主机:端口」。端口不再写死 25/587/465：
+// 端口被占用时要能通过 PMAIL_PORT_* 改（飞牛 fpk 会把它们写进 ports.env），
+// 写死的话自己发的信永远打到自己改过的端口之外去。
+func mxAddr(host, name string, def int) string {
+	return fmt.Sprintf("%s:%d", host, config.Port(name, def))
+}
+
 // mxFailoverEntry 记录一个收件人域名的全部 MX 主机（按优先级排序）。
 type mxFailoverEntry struct {
 	domain  string
@@ -162,7 +169,7 @@ func doSend(ctx *context.Context, fromDomain string, data []byte, to []*parsemai
 			}
 
 			if domain.domain == "localhost" {
-				err := smtp.SendMailUnsafe("", domain.mxHost+":25", nil, from, fromDomain, buildAddress(tos), data)
+				err := smtp.SendMailUnsafe("", mxAddr(domain.mxHost, "SMTP", 25), nil, from, fromDomain, buildAddress(tos), data)
 				if err != nil {
 					recordFailure(err)
 				}
@@ -226,7 +233,7 @@ func isPermanentSMTPResponse(err error) bool {
 // STARTTLS:25 → 587 → 465 → 明文:25
 func tryDeliverToMX(ctx *context.Context, mxHost, domain, from, fromDomain string, to []string, data []byte) error {
 	// 优先尝试25端口，starttls方式投递
-	err := smtp.SendMail("", mxHost+":25", nil, from, fromDomain, to, data)
+	err := smtp.SendMail("", mxAddr(mxHost, "SMTP", 25), nil, from, fromDomain, to, data)
 	if err == nil {
 		return nil
 	}
@@ -237,7 +244,7 @@ func tryDeliverToMX(ctx *context.Context, mxHost, domain, from, fromDomain strin
 		if errors.As(certificateErr.Err, &hostnameErr) {
 			if hostnameErr.Certificate != nil {
 				certificateHostName := hostnameErr.Certificate.DNSNames
-				err = smtp.SendMail(domainMatch(domain, certificateHostName), mxHost+":25", nil, from, fromDomain, to, data)
+				err = smtp.SendMail(domainMatch(domain, certificateHostName), mxAddr(mxHost, "SMTP", 25), nil, from, fromDomain, to, data)
 			}
 		}
 	}
@@ -250,7 +257,7 @@ func tryDeliverToMX(ctx *context.Context, mxHost, domain, from, fromDomain strin
 	log.WithContext(ctx).Infof("SMTP STARTTLS on 25 Send Error. %s", err.Error())
 
 	// 再试用587投递
-	err = smtp.SendMailWithTls("", mxHost+":587", nil, from, fromDomain, to, data)
+	err = smtp.SendMailWithTls("", mxAddr(mxHost, "SUBMISSION", 587), nil, from, fromDomain, to, data)
 	if err == nil {
 		return nil
 	}
@@ -260,7 +267,7 @@ func tryDeliverToMX(ctx *context.Context, mxHost, domain, from, fromDomain strin
 	log.WithContext(ctx).Infof("SMTPS on 587 Send Error. %s", err.Error())
 
 	// 再次尝试465投递
-	err = smtp.SendMailWithTls("", mxHost+":465", nil, from, fromDomain, to, data)
+	err = smtp.SendMailWithTls("", mxAddr(mxHost, "SMTPS", 465), nil, from, fromDomain, to, data)
 	if err == nil {
 		return nil
 	}
@@ -270,7 +277,7 @@ func tryDeliverToMX(ctx *context.Context, mxHost, domain, from, fromDomain strin
 	log.WithContext(ctx).Infof("SMTPS on 465 Send Error. %s", err.Error())
 
 	// 最后尝试非安全方式投递
-	err = smtp.SendMailUnsafe("", mxHost+":25", nil, from, fromDomain, to, data)
+	err = smtp.SendMailUnsafe("", mxAddr(mxHost, "SMTP", 25), nil, from, fromDomain, to, data)
 	if err == nil {
 		log.WithContext(ctx).Warnf("Send By Unsafe SMTP")
 		return nil

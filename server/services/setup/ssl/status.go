@@ -169,3 +169,21 @@ func lastSegment(path string) string {
 	parts := strings.Split(path, "/")
 	return parts[len(parts)-1]
 }
+
+// HasCertificate 判断 config/ssl 下是否已经有可用的证书文件
+func HasCertificate() bool {
+	cfg, err := config.ReadConfig()
+	if err != nil {
+		return false
+	}
+	return hasCertificate(cfg.SSLPrivateKeyPath, cfg.SSLPublicKeyPath)
+}
+
+// EnsureSelfSigned 没有证书时生成一张自签的，保证 SMTP/IMAP 的 TLS 一定能起来
+func EnsureSelfSigned() error {
+	cfg, err := config.ReadConfig()
+	if err != nil {
+		return err
+	}
+	return ensureSelfSigned(cfg)
+}

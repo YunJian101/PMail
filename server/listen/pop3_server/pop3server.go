@@ -21,10 +21,11 @@ func StartWithTls() {
 	tlsConfig.Certificates = []tls.Certificate{crt}
 	tlsConfig.Time = time.Now
 	tlsConfig.Rand = rand.Reader
-	instanceTls = gopop.NewPop3Server(995, "pop."+config.Instance.Domain, true, tlsConfig, action{})
+	pop3sPort := config.Port("POP3S", 995)
+	instanceTls = gopop.NewPop3Server(pop3sPort, "pop."+config.Instance.Domain, true, tlsConfig, action{})
 	instanceTls.ConnectAliveTime = 5 * time.Minute
 
-	log.Infof("POP3 With TLS Server Start On Port :995")
+	log.Infof("POP3 With TLS Server Start On Port :%d", pop3sPort)
 
 	err = instanceTls.Start()
 	if err != nil {
@@ -41,9 +42,10 @@ func Start() {
 	tlsConfig.Certificates = []tls.Certificate{crt}
 	tlsConfig.Time = time.Now
 	tlsConfig.Rand = rand.Reader
-	instance = gopop.NewPop3Server(110, "pop."+config.Instance.Domain, false, tlsConfig, action{})
+	pop3Port := config.Port("POP3", 110)
+	instance = gopop.NewPop3Server(pop3Port, "pop."+config.Instance.Domain, false, tlsConfig, action{})
 	instance.ConnectAliveTime = 5 * time.Minute
-	log.Infof("POP3 Server Start On Port :110")
+	log.Infof("POP3 Server Start On Port :%d", pop3Port)
 
 	err = instance.Start()
 	if err != nil {

@@ -37,6 +37,12 @@ func TestMain(m *testing.M) {
 	}
 
 	httpClient = &http.Client{Jar: cookeieJar, Timeout: 5 * time.Minute}
+
+	// 备份开发用的 config.json：安装流程测试要求「未安装」的干净状态，
+	// 但同一次 go test ./... 里其它包的用例要靠这份配置连数据库。
+	// 测试结束要还回去，否则整套测试的顺序就决定了成败。
+	devConfig, devConfigErr := os.ReadFile("config/config.json")
+
 	os.Remove("config/config.json")
 	os.Remove("config/pmail_temp.db")
 	os.Setenv("setup_port", cast.ToString(TestPort))
@@ -50,6 +56,10 @@ func TestMain(m *testing.M) {
 
 	signal.StopChan <- true
 	time.Sleep(3 * time.Second)
+
+	if devConfigErr == nil {
+		_ = os.WriteFile("config/config.json", devConfig, 0666)
+	}
 }
 
 func TestMaster(t *testing.T) {

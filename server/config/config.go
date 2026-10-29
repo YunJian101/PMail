@@ -262,13 +262,21 @@ func ReadConfig() (*Config, error) {
 }
 
 func (c *Config) fixPath() {
-	if c.DbType == DBTypeSQLite && !strings.HasPrefix(c.DbDSN, "/") {
+	// 相对路径一律按 ROOT_PATH 解析，绝对路径原样保留。
+	//
+	// 这里原来用 strings.HasPrefix(path, "/") 判断绝对路径 —— 那是 Linux 的写法，
+	// 在 Windows 上 "C:\..." 不以 / 开头，会被拼成 ROOT_PATH+"C:\..."，
+	// 于是「证书明明在，程序却说找不到」。用 filepath.IsAbs 两边都对。
+	if c.DbType == DBTypeSQLite && c.DbDSN != "" && !filepath.IsAbs(c.DbDSN) {
 		c.DbDSN = ROOT_PATH + c.DbDSN
 	}
-	if !strings.HasPrefix(c.SSLPublicKeyPath, "/") {
+	if c.SSLPublicKeyPath != "" && !filepath.IsAbs(c.SSLPublicKeyPath) {
 		c.SSLPublicKeyPath = ROOT_PATH + c.SSLPublicKeyPath
 	}
-	if !strings.HasPrefix(c.SSLPrivateKeyPath, "/") {
+	if c.SSLPrivateKeyPath != "" && !filepath.IsAbs(c.SSLPrivateKeyPath) {
 		c.SSLPrivateKeyPath = ROOT_PATH + c.SSLPrivateKeyPath
+	}
+	if c.DkimPrivateKeyPath != "" && !filepath.IsAbs(c.DkimPrivateKeyPath) {
+		c.DkimPrivateKeyPath = ROOT_PATH + c.DkimPrivateKeyPath
 	}
 }

@@ -22,7 +22,7 @@ func Stop() {
 func StarTLS() {
 	instanceTLS = newIMAPServer()
 	log.Infof("IMAP With TLS Server Start On Port :993")
-	if err := instanceTLS.ListenAndServeTLS(":993"); err != nil {
+	if err := instanceTLS.ListenAndServeTLS(config.Addr("IMAP", 993)); err != nil {
 		panic(err)
 	}
 }

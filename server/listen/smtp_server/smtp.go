@@ -18,7 +18,7 @@ func StartWithTLSNew() {
 
 	instanceTlsNew = smtp.NewServer(be)
 
-	instanceTlsNew.Addr = ":587"
+	instanceTlsNew.Addr = config.Addr("SUBMISSION", 587)
 	instanceTlsNew.Domain = config.Instance.Domain
 	instanceTlsNew.ReadTimeout = 10 * time.Second
 	instanceTlsNew.WriteTimeout = 10 * time.Second
@@ -47,7 +47,7 @@ func StartWithTLS() {
 
 	instanceTls = smtp.NewServer(be)
 
-	instanceTls.Addr = ":465"
+	instanceTls.Addr = config.Addr("SMTPS", 465)
 	instanceTls.Domain = config.Instance.Domain
 	instanceTls.ReadTimeout = 10 * time.Second
 	instanceTls.WriteTimeout = 10 * time.Second
@@ -75,7 +75,7 @@ func Start() {
 
 	instance = smtp.NewServer(be)
 
-	instance.Addr = ":25"
+	instance.Addr = config.Addr("SMTP", 25)
 	instance.Domain = config.Instance.Domain
 	instance.ReadTimeout = 10 * time.Second
 	instance.WriteTimeout = 10 * time.Second

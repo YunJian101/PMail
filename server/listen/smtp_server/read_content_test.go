@@ -37,6 +37,9 @@ func testInit() {
 	var cst, _ = time.LoadLocation("Asia/Shanghai")
 	time.Local = cst
 
+	// go test 的测试二进制在临时目录里，config.init() 会把 ROOT_PATH 定到那儿，
+	// 但用例要的是 server/config 下那份配置，所以这里指回仓库里的 server 目录。
+	config.ROOT_PATH = "../../"
 	config.Init()
 	config.Instance.DkimPrivateKeyPath = config.ROOT_PATH + "./config/dkim/dkim.priv"
 	config.Instance.DbType = config.DBTypeSQLite

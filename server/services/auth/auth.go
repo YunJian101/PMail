@@ -7,11 +7,13 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"github.com/Jinnrry/pmail/config"
 	"github.com/Jinnrry/pmail/db"
 	"github.com/Jinnrry/pmail/models"
 	"github.com/Jinnrry/pmail/utils/context"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -30,9 +32,27 @@ func HasAuth(ctx *context.Context, email *models.Email) bool {
 	return len(ue) != 0
 }
 
+// dkimDir 返回 DKIM 文件所在目录。
+//
+// 这里不能写死 "./config/dkim"：那是相对「进程当前目录」的，而 PMail 的数据目录
+// 是 ROOT_PATH（可执行文件所在目录，或被 PMail_ROOT 覆盖）。两者不一致时，
+// 这里生成的私钥会落在别处，parsemail 启动时按 ROOT_PATH 找不到就直接 panic。
+func dkimDir() string {
+	root := config.ROOT_PATH
+	if root == "" {
+		root = "./"
+	}
+	return filepath.Join(root, "config", "dkim")
+}
+
 func DkimGen() string {
-	privKeyStr, _ := os.ReadFile("./config/dkim/dkim.priv")
-	publicKeyStr, _ := os.ReadFile("./config/dkim/dkim.public")
+	dir := dkimDir()
+	_ = os.MkdirAll(dir, 0o744)
+	privPath := filepath.Join(dir, "dkim.priv")
+	pubPath := filepath.Join(dir, "dkim.public")
+
+	privKeyStr, _ := os.ReadFile(privPath)
+	publicKeyStr, _ := os.ReadFile(pubPath)
 	if len(privKeyStr) > 0 && len(publicKeyStr) > 0 {
 		return string(publicKeyStr)
 	}
@@ -53,7 +73,7 @@ func DkimGen() string {
 		log.Fatalf("Failed to marshal private key: %v", err)
 	}
 
-	f, err := os.OpenFile("./config/dkim/dkim.priv", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(privPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		log.Fatalf("Failed to create key file: %v", err)
 	}
@@ -96,7 +116,7 @@ func DkimGen() string {
 
 	publicKey := strings.Join(params, "; ")
 
-	os.WriteFile("./config/dkim/dkim.public", []byte(publicKey), 0666)
+	os.WriteFile(pubPath, []byte(publicKey), 0666)
 
 	return publicKey
 }

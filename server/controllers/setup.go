@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -31,6 +32,22 @@ func AcmeChallenge(w http.ResponseWriter, r *http.Request) {
 type sslResponse struct {
 	Port int    `json:"port"`
 	Type string `json:"type"`
+}
+
+// certResponse = 证书摘要 + 安装是否真的收尾成功
+type certResponse struct {
+	ssl.CertInfo
+	Finished bool   `json:"finished"`
+	Reason   string `json:"reason"`
+}
+
+func withFinish(info ssl.CertInfo) certResponse {
+	res := certResponse{CertInfo: info}
+	if !info.Found {
+		return res
+	}
+	res.Finished, res.Reason = setup.FinishOnce()
+	return res
 }
 
 func Setup(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
@@ -143,12 +160,37 @@ func Setup(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// 证书签发进度：前端在 set 之后轮询这里，避免同步阻塞到 ACME 结束
+	// 证书就位：飞牛自带证书 / 粘贴的 PEM 都走这里收尾
+	// （只有「域名 + 数据库 + 管理员 + 证书」全齐了才会真的标记安装完成）
+	if reqData["step"] == "ssl" && reqData["action"] == "loadFnOsCert" {
+		info := ssl.LoadFnOsCert()
+		response.NewSuccessResponse(withFinish(info)).FPrint(w)
+		return
+	}
+
+	if reqData["step"] == "ssl" && reqData["action"] == "uploadCert" {
+		info := ssl.SaveCertPEM([]byte(reqData["key"]), []byte(reqData["crt"]))
+		response.NewSuccessResponse(withFinish(info)).FPrint(w)
+		return
+	}
+	// 收尾：前端在证书就位之后调这个。缺任何一项都不会把安装标记完成。
+	if reqData["step"] == "ssl" && reqData["action"] == "finish" {
+		done, reason := setup.FinishOnce()
+		response.NewSuccessResponse(map[string]any{"finished": done, "reason": reason}).FPrint(w)
+		return
+	}
+
 	if reqData["step"] == "ssl" && reqData["action"] == "status" {
 		state := ssl.GetCertState()
 		if state.State == "ok" || state.State == "ok_fallback" {
-			// 证书可用了，把安装收尾（FinishOnce 幂等，重复调用不会阻塞）
-			setup.FinishOnce()
+			if !ssl.HasCertificate() {
+				_ = ssl.EnsureSelfSigned()
+			}
+			// 证书可用了，把安装收尾（幂等，重复调用不会阻塞）
+			done, reason := setup.FinishOnce()
+			if !done {
+				state.Error = reason
+			}
 		}
 		response.NewSuccessResponse(state).FPrint(w)
 		return
@@ -156,24 +198,37 @@ func Setup(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 
 	if reqData["step"] == "ssl" && reqData["action"] == "set" {
 
-		if reqData["ssl_type"] == config.SSLTypeUser {
-			keyPath := reqData["key_path"]
-			crtPath := reqData["crt_path"]
+		keyPath := cast.ToString(reqData["key_path"])
+		crtPath := cast.ToString(reqData["crt_path"])
 
-			_, err := os.Stat(cast.ToString(keyPath))
+		if reqData["ssl_type"] == config.SSLTypeUser {
+			// 统一转成绝对路径再写进 config.json：
+			// 相对路径是相对「进程当前目录」的，而 PMail 运行目录（ROOT_PATH）
+			// 和当前目录不一定相同，写相对的会让证书在重启后找不到。
+			var err error
+			keyPath, err = filepath.Abs(keyPath)
+			if err != nil {
+				response.NewErrorResponse(response.ServerError, err.Error(), "").FPrint(w)
+				return
+			}
+			crtPath, err = filepath.Abs(crtPath)
 			if err != nil {
 				response.NewErrorResponse(response.ServerError, err.Error(), "").FPrint(w)
 				return
 			}
 
-			_, err = os.Stat(cast.ToString(crtPath))
-			if err != nil {
+			if _, err := os.Stat(keyPath); err != nil {
+				response.NewErrorResponse(response.ServerError, err.Error(), "").FPrint(w)
+				return
+			}
+
+			if _, err := os.Stat(crtPath); err != nil {
 				response.NewErrorResponse(response.ServerError, err.Error(), "").FPrint(w)
 				return
 			}
 		}
 
-		err = ssl.SetSSL(cast.ToString(reqData["ssl_type"]), cast.ToString(reqData["key_path"]), cast.ToString(reqData["crt_path"]))
+		err = ssl.SetSSL(cast.ToString(reqData["ssl_type"]), keyPath, crtPath)
 		if err != nil {
 			response.NewErrorResponse(response.ServerError, err.Error(), "").FPrint(w)
 			return
@@ -188,8 +243,8 @@ func Setup(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 		}
 
 		// 手动证书：文件已校验过，直接收尾
-		response.NewSuccessResponse("Succ").FPrint(w)
-		setup.FinishOnce()
+		done, reason := setup.FinishOnce()
+		response.NewSuccessResponse(map[string]any{"finished": done, "reason": reason}).FPrint(w)
 		return
 	}
 

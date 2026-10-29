@@ -3,6 +3,7 @@ package res_init
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"time"
 
 	"fmt"
@@ -96,23 +97,20 @@ func Init(serverVersion string) {
 }
 
 func dirInit() {
-	if !file.PathExist("./config") {
-		err := os.MkdirAll("./config", 0744)
-		if err != nil {
-			panic(err)
-		}
+	// 目录要建在 ROOT_PATH 下，而不是「当前目录」：
+	// 两者不一致时（PMail_ROOT 覆盖、go test、被别的进程拉起），
+	// 配置目录建错地方会导致 DKIM / 证书找不到，安装收尾时直接 panic。
+	base := config.ROOT_PATH
+	if base == "" {
+		base = "./"
 	}
 
-	if !file.PathExist("./config/dkim") {
-		err := os.MkdirAll("./config/dkim", 0744)
-		if err != nil {
-			panic(err)
+	for _, dir := range []string{"config", "config/dkim", "config/ssl"} {
+		full := filepath.Join(base, dir)
+		if file.PathExist(full) {
+			continue
 		}
-	}
-
-	if !file.PathExist("./config/ssl") {
-		err := os.MkdirAll("./config/ssl", 0744)
-		if err != nil {
+		if err := os.MkdirAll(full, 0744); err != nil {
 			panic(err)
 		}
 	}

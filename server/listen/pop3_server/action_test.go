@@ -13,6 +13,9 @@ import (
 )
 
 func Test_action_Retr(t *testing.T) {
+	// go test 的测试二进制在临时目录里，config.init() 会把 ROOT_PATH 定到那儿，
+	// 但用例要的是 server/config 下那份配置，所以这里指回仓库里的 server 目录。
+	config.ROOT_PATH = "../../"
 	config.Init()
 	config.Instance.DbType = config.DBTypeSQLite
 	config.Instance.DbDSN = config.ROOT_PATH + "./config/pmail_temp.db"

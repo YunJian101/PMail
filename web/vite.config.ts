@@ -19,6 +19,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    watch: {
+      // 编辑器/工具做原子写入时会在 src/ 下建临时目录，watcher 抢锁会直接 EBUSY 崩掉
+      ignored: ['**/.*.tmpdir/**', '**/.*.tmp', '**/node_modules/**'],
+    },
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true, secure: false },
     },

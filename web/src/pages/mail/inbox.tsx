@@ -90,7 +90,7 @@ function MailRow({
         }
       }}
       className={cn(
-        'group relative grid cursor-pointer grid-cols-[34px_1fr_auto] gap-2.5 border-b border-[color-mix(in_srgb,var(--border)_65%,transparent)] px-4 py-[13px]',
+        'group relative mx-1.5 my-1 grid cursor-pointer grid-cols-[34px_1fr_auto] gap-2.5 rounded-[14px] px-3 py-2.5',
         'transition-colors duration-150',
         unread
           ? 'bg-[color-mix(in_srgb,var(--primary-soft)_55%,var(--surface))] hover:bg-primary-soft'
@@ -99,7 +99,9 @@ function MailRow({
         selected && 'bg-[color-mix(in_srgb,var(--primary)_10%,var(--surface))]',
       )}
     >
-      {active ? <span className="absolute inset-y-0 left-0 w-[3px] bg-primary" /> : null}
+      {active ? (
+        <span className="pointer-events-none absolute inset-0 rounded-[14px] ring-[1.5px] ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]" />
+      ) : null}
 
       <div className="relative mt-px">
         <Avatar
@@ -272,15 +274,15 @@ export function InboxPage() {
   const moveTargets = folderItems.filter((item) => tagToSlug(item.tag) !== folder)
 
   return (
-    <div className="grid h-full min-w-0 grid-cols-1 overflow-hidden md:grid-cols-[340px_1fr] xl:grid-cols-[396px_1fr]">
+    <div className="grid h-full min-w-0 grid-cols-1 gap-2.5 overflow-hidden md:grid-cols-[340px_1fr] xl:grid-cols-[396px_1fr]">
       {/* ---------------- 列表 ---------------- */}
       <section
         className={cn(
-          'min-w-0 flex-col border-r border-border-base bg-surface',
+          'min-w-0 flex-col overflow-hidden bg-surface md:rounded-[22px] md:border md:border-border-base md:shadow-e1',
           selectedId ? 'hidden md:flex' : 'flex',
         )}
       >
-        <div className="border-b border-border-base px-4 pb-3 pt-4">
+        <div className="px-4 pb-3 pt-4">
           <div className="mb-3 flex items-baseline gap-2">
             <h1 className="m-0 text-[17px] font-[700] tracking-[-0.015em]">
               {currentFolder?.label || t('folder.inbox')}
@@ -329,7 +331,7 @@ export function InboxPage() {
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
               placeholder={t('mail.search.placeholder')}
-              className="h-9 pl-9 pr-9 text-[13px]"
+              className="h-9 rounded-full border-transparent bg-surface-2 pl-9 pr-9 text-[13px] focus:border-primary focus:bg-surface"
             />
             {keywordInput ? (
               <button
@@ -349,7 +351,7 @@ export function InboxPage() {
         </div>
 
         {selection.length > 0 ? (
-          <div className="flex items-center gap-1.5 border-b border-border-base bg-primary-soft px-3 py-2">
+          <div className="mx-2 mb-1.5 flex items-center gap-1.5 rounded-[12px] bg-primary-soft px-3 py-1.5">
             <span className="text-[12.5px] font-[600] text-primary">
               {t('mail.select.count', { count: selection.length })}
             </span>
@@ -424,7 +426,7 @@ export function InboxPage() {
           )}
         </div>
 
-        <div className="flex h-11 flex-none items-center justify-between border-t border-border-base px-3 text-[12px] text-fg-subtle">
+        <div className="m-2 mt-auto flex h-9 flex-none items-center justify-between rounded-[12px] bg-surface-2 px-2.5 text-[12px] text-fg-subtle">
           <span className="tabular-nums">
             {t('mail.pagination', { page: currentPage, total: totalPage })}
           </span>
@@ -454,7 +456,7 @@ export function InboxPage() {
       {/* ---------------- 阅读 ---------------- */}
       <div
         className={cn(
-          'min-h-0 min-w-0 overflow-hidden',
+          'min-h-0 min-w-0 overflow-hidden bg-surface md:rounded-[22px] md:border md:border-border-base md:shadow-e1',
           selectedId ? 'block' : 'hidden md:block',
         )}
       >

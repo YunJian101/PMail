@@ -6,12 +6,12 @@
    设计 token —— 浅色 / 深色共用一套语义变量
    ========================================================= */
 :root {
-  --bg: #f5f6f9;
+  --bg: #eef2f8;
   --surface: #ffffff;
-  --surface-2: #fbfcfe;
-  --surface-3: #f2f4f8;
-  --border: #e7e9ef;
-  --border-strong: #d6dae3;
+  --surface-2: #f7f9fd;
+  --surface-3: #eff3f9;
+  --border: #e5e9f1;
+  --border-strong: #d3d9e4;
   --fg: #0e1320;
   --fg-muted: #5a6373;
   --fg-subtle: #8b93a3;
@@ -25,9 +25,9 @@
   --warning: #e8a317;
   --danger: #e5484d;
   --star: #f5a524;
-  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-2: 0 2px 6px -1px rgba(16, 24, 40, 0.07), 0 10px 28px -14px rgba(16, 24, 40, 0.16);
-  --shadow-3: 0 24px 64px -24px rgba(16, 24, 40, 0.3), 0 2px 8px rgba(16, 24, 40, 0.06);
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.03);
+  --shadow-2: 0 6px 16px -8px rgba(16, 24, 40, 0.12), 0 20px 44px -28px rgba(16, 24, 40, 0.22);
+  --shadow-3: 0 28px 72px -28px rgba(16, 24, 40, 0.32), 0 2px 8px rgba(16, 24, 40, 0.06);
 }
 
 .dark {
@@ -75,11 +75,11 @@
   --color-danger: var(--danger);
   --color-star: var(--star);
 
-  --radius-xs: 8px;
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-xs: 10px;
+  --radius-sm: 12px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
 
   --shadow-e1: var(--shadow-1);
   --shadow-e2: var(--shadow-2);

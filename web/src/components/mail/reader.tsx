@@ -164,7 +164,7 @@ export function MailReader({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-surface">
-      <div className="flex h-14 flex-none items-center gap-0.5 border-b border-border-base px-3.5">
+      <div className="flex h-14 flex-none items-center gap-0.5 px-3.5">
         {onBack ? (
           <Button
             variant="ghost"

@@ -49,16 +49,21 @@ func genSQL(ctx *context.Context, count bool, tagInfo dto.SearchTag, keyword str
 	}
 
 	if tagInfo.Status != -1 {
+		// 内置箱子（已删除/草稿/广告）同时要求「没被移到别处」：
+		// group_id 必须是 0 或本箱。以前只看 status，移动邮件又只改 group_id，
+		// 结果从这些箱子移走的邮件还会留在原箱子里（两个箱子都显示）。
+		var boxId int
 		switch tagInfo.Status {
 		case consts.EmailStatusDel:
-			sql += " and (ue.status =? or ue.group_id=?) "
-			sqlParams = append(sqlParams, tagInfo.Status, models.Deleted)
+			boxId = models.Deleted
 		case consts.EmailStatusDrafts:
-			sql += " and (ue.status =? or ue.group_id=?) "
-			sqlParams = append(sqlParams, tagInfo.Status, models.Drafts)
+			boxId = models.Drafts
 		case consts.EmailStatusJunk:
-			sql += " and (ue.status =? or ue.group_id=?) "
-			sqlParams = append(sqlParams, tagInfo.Status, models.Junk)
+			boxId = models.Junk
+		}
+		if boxId != 0 {
+			sql += " and (ue.status =? or ue.group_id=?) and (ue.group_id=0 or ue.group_id=?) "
+			sqlParams = append(sqlParams, tagInfo.Status, boxId, boxId)
 		}
 
 	} else if tagInfo.Status == -1 {

@@ -82,7 +82,8 @@ start_app() {
 
     # PMail 用「可执行文件所在目录」当 ROOT_PATH，这里显式指到持久目录
     export PMail_ROOT="${VAR}/"
-    export setup_port="${PMAIL_SETUP_PORT:-8080}"
+    # 网页端口：优先 PMAIL_SETUP_PORT（临时覆盖），否则用 ports.env 里的 PMAIL_PORT_WEB
+    export setup_port="${PMAIL_SETUP_PORT:-${PMAIL_PORT_WEB:-8080}}"
 
     log_msg "starting: web port from config.json, mail ports ${PMAIL_PORT_SMTP}/${PMAIL_PORT_SMTPS}/${PMAIL_PORT_SUBMISSION}/${PMAIL_PORT_IMAP}/${PMAIL_PORT_POP3}/${PMAIL_PORT_POP3S}"
     cd "${VAR}" || { fail_msg "cannot cd ${VAR}"; return 1; }

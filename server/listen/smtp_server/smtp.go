@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Jinnrry/pmail/config"
+	"github.com/Jinnrry/pmail/listen/mailstatus"
 	"github.com/emersion/go-smtp"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,7 +30,8 @@ func StartWithTLSNew() {
 	// Load the certificate and key
 	cer, err := tls.LoadX509KeyPair(config.Instance.SSLPublicKeyPath, config.Instance.SSLPrivateKeyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("smtp submission: load certificate failed: %v", err)
+		mailstatus.Report("SMTP-SUBMISSION", config.Port("SUBMISSION", 587), err)
 		return
 	}
 	// Configure the TLS support for STARTTLS
@@ -38,8 +40,12 @@ func StartWithTLSNew() {
 	log.Println("Starting Smtp With STARTTLS Server Port:", instanceTlsNew.Addr)
 	// 587端口使用STARTTLS（先明文连接，再升级TLS），而非隐式TLS
 	if err := instanceTlsNew.ListenAndServe(); err != nil {
-		log.Fatal(err)
+		// 端口被占用时不能杀掉进程，否则网页也打不开、没地方改端口
+		log.Errorf("smtp submission: listen failed: %v", err)
+		mailstatus.Report("SMTP-SUBMISSION", config.Port("SUBMISSION", 587), err)
+		return
 	}
+	mailstatus.Report("SMTP-SUBMISSION", config.Port("SUBMISSION", 587), nil)
 }
 
 func StartWithTLS() {
@@ -58,7 +64,8 @@ func StartWithTLS() {
 	// Load the certificate and key
 	cer, err := tls.LoadX509KeyPair(config.Instance.SSLPublicKeyPath, config.Instance.SSLPrivateKeyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("smtp ssl: load certificate failed: %v", err)
+		mailstatus.Report("SMTP-SSL", config.Port("SMTPS", 465), err)
 		return
 	}
 	// Configure the TLS support
@@ -66,8 +73,11 @@ func StartWithTLS() {
 
 	log.Println("Starting Smtp With SSL Server Port:", instanceTls.Addr)
 	if err := instanceTls.ListenAndServeTLS(); err != nil {
-		log.Fatal(err)
+		log.Errorf("smtp ssl: listen failed: %v", err)
+		mailstatus.Report("SMTP-SSL", config.Port("SMTPS", 465), err)
+		return
 	}
+	mailstatus.Report("SMTP-SSL", config.Port("SMTPS", 465), nil)
 }
 
 func Start() {
@@ -86,7 +96,8 @@ func Start() {
 	// Load the certificate and key
 	cer, err := tls.LoadX509KeyPair(config.Instance.SSLPublicKeyPath, config.Instance.SSLPrivateKeyPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("smtp: load certificate failed: %v", err)
+		mailstatus.Report("SMTP", config.Port("SMTP", 25), err)
 		return
 	}
 	// Configure the TLS support
@@ -94,8 +105,11 @@ func Start() {
 
 	log.Println("Starting Smtp Server Port:", instance.Addr)
 	if err := instance.ListenAndServe(); err != nil {
-		log.Fatal(err)
+		log.Errorf("smtp: listen failed: %v", err)
+		mailstatus.Report("SMTP", config.Port("SMTP", 25), err)
+		return
 	}
+	mailstatus.Report("SMTP", config.Port("SMTP", 25), nil)
 }
 
 func Stop() {

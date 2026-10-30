@@ -268,6 +268,18 @@ const server = http.createServer(async (req, res) => {
   if (path === '/api/rule/add' || path === '/api/rule/update') return send(res, 'succ')
   if (path === '/api/rule/del') return send(res, 'succ')
   if (path === '/api/plugin/list') return send(res, ['wechat_push', 'spam_block'])
+  if (path === '/api/settings/mail_ports')
+    return send(res, {
+      webPort: 8080,
+      ports: [
+        { service: 'IMAP', port: 993, ok: true },
+        { service: 'POP3', port: 110, ok: true },
+        { service: 'POP3S', port: 995, ok: true },
+        { service: 'SMTP', port: 25, ok: true },
+        { service: 'SMTP-SSL', port: 465, ok: false, error: 'listen tcp :465: bind: address already in use' },
+        { service: 'SMTP-SUBMISSION', port: 587, ok: true },
+      ],
+    })
   if (path === '/api/email/unread') return send(res, { inbox: 3, sent: 0, drafts: 1, junk: 0, trash: 0 })
   if (path === '/api/version')
     return send(res, { version: '2.0.4beta', buildTime: '2026-10-30T13:50:00Z', gitHash: 'local', goVersion: 'go1.27.3' })

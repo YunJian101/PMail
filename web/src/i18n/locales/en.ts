@@ -308,6 +308,12 @@ const en: Dict = {
   'admin.settings.version': 'Version',
   'admin.settings.restartHint':
     'These settings live in config.json on the server; restart the service for changes to take effect.',
+  'admin.settings.ports': 'Mail ports',
+  'admin.settings.portsOk': 'All listening',
+  'admin.settings.portsFailed': '{count} port(s) down',
+  'admin.settings.webPort': 'Web port',
+  'admin.settings.portsDesc': 'Mail clients use these ports. The app keeps running when a port is taken; change it and restart.',
+  'admin.settings.portsHint': 'Edit these ports here, or change ports.env in the app data directory and restart.',
   'admin.settings.sslStatus': 'Certificate',
   'admin.settings.sslExpire': 'Valid until {date} ({days} days left)',
   'admin.settings.sslMissing': 'Certificate not ready or unreadable',

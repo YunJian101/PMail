@@ -300,22 +300,23 @@ func getGroupNum(ctx *context.Context, groupName string, mustUnread bool) int {
 			).Get(&count)
 		}
 	case "Drafts":
+		// 与网页端一致：被移走的邮件不再算在草稿箱
 		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=4 and is_read=0", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=4 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.Drafts).Get(&count)
 		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=4", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=4 and (group_id=? or group_id=0)", ctx.UserID, models.Drafts).Get(&count)
 		}
 	case "Deleted Messages":
 		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=3 and is_read=0", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=3 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.Deleted).Get(&count)
 		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=3", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=3 and (group_id=? or group_id=0)", ctx.UserID, models.Deleted).Get(&count)
 		}
 	case "Junk":
 		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=5 and is_read=0", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=5 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.Junk).Get(&count)
 		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=5", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=5 and (group_id=? or group_id=0)", ctx.UserID, models.Junk).Get(&count)
 		}
 	}
 	return count

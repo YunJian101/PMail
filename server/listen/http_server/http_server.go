@@ -48,6 +48,7 @@ func router(mux *http.ServeMux) {
 	mux.HandleFunc("/api/settings/modify_password", contextIterceptor(controllers.ModifyPassword))
 	mux.HandleFunc("/api/settings/ssl_info", contextIterceptor(controllers.SslInfo))
 	mux.HandleFunc("/api/settings/reload_cert", contextIterceptor(controllers.SslReload))
+	mux.HandleFunc("/api/settings/mail_ports", contextIterceptor(controllers.PortsInfo))
 	mux.HandleFunc("/api/rule/get", contextIterceptor(controllers.GetRule))
 	mux.HandleFunc("/api/rule/add", contextIterceptor(controllers.UpsertRule))
 	mux.HandleFunc("/api/rule/update", contextIterceptor(controllers.UpsertRule))

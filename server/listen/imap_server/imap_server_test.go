@@ -70,7 +70,11 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	imapTestAddr = ln.Addr().String()
-	instanceTLS = newIMAPServer()
+	server, err := newIMAPServer()
+	if err != nil {
+		panic(err)
+	}
+	instanceTLS = server
 	go func() {
 		if err := instanceTLS.Serve(ln); err != nil {
 			panic(err)

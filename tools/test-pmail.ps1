@@ -322,6 +322,10 @@ try {
     $unread = Invoke-Api "$httpUrl/api/email/unread"
     Check 'unread counts endpoint works' ($unread.Json.errorNo -eq 0 -and $null -ne $unread.Json.data.inbox) $unread.Text
 
+    # ---------- 10c3. mail port status (ports never kill the process) ----------
+    $ports = Invoke-Api "$httpUrl/api/settings/mail_ports"
+    Check 'mail port status endpoint works' ($ports.Json.errorNo -eq 0 -and $null -ne $ports.Json.data.webPort) $ports.Text
+
     # ---------- 10d. disabled account gets a clear login error ----------
     $createBlocked = Invoke-Api "$httpUrl/api/user/create" @{ account = 'blocked'; username = 'Blocked'; password = 'BlockedPass1!' }
     Check 'admin can create another user' ($createBlocked.Json.errorNo -eq 0) $createBlocked.Text

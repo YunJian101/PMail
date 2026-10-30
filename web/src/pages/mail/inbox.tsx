@@ -235,6 +235,9 @@ export function InboxPage() {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['mail-list'] })
+    // 未读数和分组数量也要立刻刷新，否则要等 15 秒轮询才更新
+    queryClient.invalidateQueries({ queryKey: ['unread'] })
+    queryClient.invalidateQueries({ queryKey: ['folders'] })
   }
 
   const readMutation = useMutation({

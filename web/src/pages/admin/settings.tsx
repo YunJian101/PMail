@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardBody, CardHeader, PageHeader } from '@/components/ui/card'
+import { PortsCard } from '@/components/admin/ports-card'
 import { VersionTag } from '@/components/ui/version-tag'
 
 interface SslInfo {
@@ -197,6 +198,11 @@ export function SettingsPage() {
       {/* 证书状态（飞牛来源时显示自动同步状态，可手动重载） */}
       <div className="mt-4">
         <SslCard />
+      </div>
+
+      {/* 邮件端口状态 */}
+      <div className="mt-4">
+        <PortsCard />
       </div>
 
       <Card className="mt-4">

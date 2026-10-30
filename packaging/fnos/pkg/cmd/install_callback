@@ -1,22 +1,64 @@
 #!/bin/bash
-# 安装后：给二进制加执行权限，装上改端口的快捷命令
+# 安装后：给二进制加执行权限、挑一个空闲的网页端口、同步桌面入口的端口
 BIN="${TRIM_APPDEST}/pmail"
 chmod +x "${BIN}" 2>/dev/null
 chmod +x "${TRIM_APPDEST}/cmd"/* 2>/dev/null
 
-cat > /usr/local/bin/pmail-port <<'EOF'
+VAR="${TRIM_PKGVAR}"
+ENV_FILE="${VAR}/ports.env"
+CFG="${VAR}/config/config.json"
+UI_CFG="${TRIM_APPDEST}/ui/config"
+LOG="${VAR}/install.log"
+
+port_busy() {
+    ss -ltn 2>/dev/null | grep -q ":$1 " && return 0
+    return 1
+}
+
+# ---------- 1. 选一个空闲的网页端口 ----------
+WEB_PORT=""
+if [ -r "${ENV_FILE}" ]; then
+    WEB_PORT=$(sed -n 's/^PMAIL_PORT_WEB=\([0-9]\{2,5\}\)$/\1/p' "${ENV_FILE}" | head -n 1)
+fi
+if [ -z "${WEB_PORT}" ] || port_busy "${WEB_PORT}"; then
+    WEB_PORT=8080
+    for p in $(seq 8080 8099); do
+        if ! port_busy "$p"; then WEB_PORT="$p"; break; fi
+    done
+fi
+
+# 写回 ports.env
+touch "${ENV_FILE}"
+sed -i "/^PMAIL_PORT_WEB=/d" "${ENV_FILE}"
+echo "PMAIL_PORT_WEB=${WEB_PORT}" >> "${ENV_FILE}"
+
+# ---------- 2. 还没装完的话，把网页端口写进 config.json ----------
+if [ -f "${CFG}" ]; then
+    IS_INIT=$(grep -o '"isInit"[[:space:]]*:[[:space:]]*true' "${CFG}" || true)
+    if [ -z "${IS_INIT}" ]; then
+        sed -i "s/\"httpPort\"[[:space:]]*:[[:space:]]*[0-9]\+/\"httpPort\":${WEB_PORT}/" "${CFG}"
+    fi
+fi
+
+# ---------- 3. 同步桌面入口的端口（不改这个，图标点进去还是错的） ----------
+if [ -f "${UI_CFG}" ]; then
+    sed -i "s/\"port\"[[:space:]]*:[[:space:]]*\"[0-9]\+\"/\"port\": \"${WEB_PORT}\"/" "${UI_CFG}"
+fi
+
+echo "install ok: $(date) web_port=${WEB_PORT}" >> "${LOG}"
+
+# ---------- 4. 方便命令行改端口（可选） ----------
+cat > /usr/local/bin/pmail-port <<EOF
 #!/bin/bash
-# 改端口：pmail-port imap 9993
-# 可用名字：smtp smtps submission imap pop3 pop3s
-[ $# -ne 2 ] && { echo "usage: pmail-port {smtp|smtps|submission|imap|pop3|pop3s} <port>"; exit 1; }
-NAME=$(echo "$1" | tr 'a-z' 'A-Z')
-ENV_FILE="${TRIM_PKGVAR}/ports.env"
-[ -r "${ENV_FILE}" ] || { echo "missing ${ENV_FILE}"; exit 1; }
-sed -i "/^PMAIL_PORT_${NAME}=/d" "${ENV_FILE}"
-echo "PMAIL_PORT_${NAME}=$2" >> "${ENV_FILE}"
-echo "已设置 ${NAME} -> $2，重启应用后生效"
+# 改端口：pmail-port {smtp|smtps|submission|imap|pop3|pop3s|web} <port>
+[ \$# -ne 2 ] && { echo "usage: pmail-port {smtp|smtps|submission|imap|pop3|pop3s|web} <port>"; exit 1; }
+NAME=\$(echo "\$1" | tr 'a-z' 'A-Z')
+ENV_FILE="${ENV_FILE}"
+[ -r "\${ENV_FILE}" ] || { echo "missing \${ENV_FILE}"; exit 1; }
+sed -i "/^PMAIL_PORT_\${NAME}=/d" "\${ENV_FILE}"
+echo "PMAIL_PORT_\${NAME}=\$2" >> "\${ENV_FILE}"
+echo "已设置 \${NAME} -> \$2，重启应用后生效"
 EOF
 chmod +x /usr/local/bin/pmail-port
 
-echo "install ok: $(date)" >> "${TRIM_PKGVAR}/install.log"
 exit 0

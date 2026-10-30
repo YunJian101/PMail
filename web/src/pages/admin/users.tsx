@@ -231,7 +231,7 @@ export function UsersPage() {
         }
       />
 
-      <div className="mt-5 grid grid-cols-4 gap-3">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
         <StatCard
           icon={<Users className="h-3.5 w-3.5" />}
           label={t('admin.users.total')}
@@ -265,7 +265,8 @@ export function UsersPage() {
           }
         />
 
-        <table className="w-full border-collapse">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[560px] border-collapse">
           <thead>
             <tr className="bg-surface-2">
               <th className="px-4 py-2.5 text-left text-[11.5px] font-[650] uppercase tracking-[0.04em] text-fg-subtle">
@@ -394,6 +395,7 @@ export function UsersPage() {
               : null}
           </tbody>
         </table>
+        </div>
 
         <div className="flex h-11 items-center justify-between border-t border-border-base/70 px-4 text-[12px] text-fg-subtle">
           <span className="tabular-nums">

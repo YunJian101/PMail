@@ -102,7 +102,8 @@ export function FoldersPage() {
           </span>
         </div>
 
-        <table className="w-full border-collapse">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[560px] border-collapse">
           <thead>
             <tr className="bg-surface-2">
               <th className="px-4 py-2.5 text-left text-[11.5px] font-[650] uppercase tracking-[0.04em] text-fg-subtle">
@@ -198,6 +199,7 @@ export function FoldersPage() {
               : null}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* ---------------- 新建分组 ---------------- */}

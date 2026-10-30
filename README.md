@@ -1,6 +1,6 @@
-# PMail 2.0.17beta · React 前端重写版
+# PMail 2.0.18beta · React 前端重写版
 
-> React frontend rewrite，版本 **2.0.17beta**。`fnos` 分支在 Docker 版基础上增加了飞牛 fnOS 的 fpk 打包与安装适配。
+> React frontend rewrite，版本 **2.0.18beta**。`fnos` 分支在 Docker 版基础上增加了飞牛 fnOS 的 fpk 打包与安装适配。
 
 把 [Jinnrry/PMail](https://github.com/Jinnrry/PMail) 的前端从 **Vue3 + element-plus** 完整重写为 **React + TypeScript + Tailwind**，视觉重新设计，功能对齐原版；Go 后端本阶段保持不动。
 

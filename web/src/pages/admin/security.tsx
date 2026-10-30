@@ -42,7 +42,7 @@ export function SecurityPage() {
 
       <div className="mt-5 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="rounded-xl border border-border-base bg-surface shadow-e1">
-          <div className="flex items-center gap-2 border-b border-border-base px-4 py-3">
+          <div className="flex items-center gap-2 px-4 pb-3 pt-3.5">
             <KeyRound className="h-4 w-4 text-fg-subtle" />
             <b className="text-[14px] font-[650]">{t('admin.security.modifyPwd')}</b>
           </div>
@@ -81,7 +81,7 @@ export function SecurityPage() {
         </section>
 
         <section className="rounded-xl border border-border-base bg-surface shadow-e1">
-          <div className="flex items-center gap-2 border-b border-border-base px-4 py-3">
+          <div className="flex items-center gap-2 px-4 pb-3 pt-3.5">
             <ShieldCheck className="h-4 w-4 text-fg-subtle" />
             <b className="text-[14px] font-[650]">{t('admin.security.session')}</b>
           </div>

@@ -16,7 +16,6 @@ import { useSession } from '@/store/session'
 import { useTheme } from '@/theme/theme-provider'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { SectionLabel } from '@/components/ui/empty'
 import { Tooltip } from '@/components/ui/tooltip'
 
 const NAV_ITEMS = [
@@ -28,6 +27,10 @@ const NAV_ITEMS = [
   { to: '/admin/settings', label: 'admin.settings', icon: Settings },
 ] as const
 
+/**
+ * 管理后台外壳：和邮件页同一套语言——浮动圆角侧栏卡片 + 右侧内容区。
+ * 页面自己负责 PageHeader 与 Card，这里只提供骨架。
+ */
 export default function AdminLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -35,11 +38,11 @@ export default function AdminLayout() {
   const { resolved, toggle } = useTheme()
 
   return (
-    <div className="grid h-full grid-cols-[236px_1fr] overflow-hidden bg-bg">
-      <aside className="flex min-w-0 flex-col border-r border-border-base bg-surface-2 px-3 pb-3 pt-4">
-        <div className="flex items-center gap-2.5 px-1.5 pb-4">
-          <div className="grid h-8 w-8 place-items-center rounded-[9px] bg-gradient-to-br from-primary to-accent text-primary-fg shadow-e1">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.9}>
+    <div className="flex h-full min-h-0 overflow-hidden bg-bg lg:gap-2.5 lg:p-3">
+      <aside className="hidden h-full min-h-0 w-[236px] flex-none flex-col rounded-xl border border-border-base bg-surface px-2.5 pb-2.5 pt-3 shadow-e1 lg:flex">
+        <div className="flex items-center gap-2.5 px-2 pb-3">
+          <div className="grid h-9 w-9 place-items-center rounded-sm bg-gradient-to-br from-primary to-accent text-primary-fg shadow-[0_6px_16px_-8px_rgba(37,99,235,.9)]">
+            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.9}>
               <rect x="2.5" y="4.5" width="19" height="15" rx="3" />
               <path d="m3.5 7 7.4 5.3a2 2 0 0 0 2.2 0L20.5 7" strokeLinecap="round" />
             </svg>
@@ -54,18 +57,14 @@ export default function AdminLayout() {
 
         <Button
           variant="ghost"
-          className="mb-2 h-9 w-full justify-start px-2.5"
+          className="mb-2 h-9 w-full justify-start rounded-sm px-2.5"
           onClick={() => navigate('/mail/inbox')}
         >
           <ArrowLeft className="h-4 w-4" />
           {t('admin.backToMail')}
         </Button>
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto scrollbar-none">
-          <div className="px-2.5 pb-1.5 pt-2">
-            <SectionLabel>{t('admin.title')}</SectionLabel>
-          </div>
-
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto scrollbar-none">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon
             return (
@@ -74,18 +73,15 @@ export default function AdminLayout() {
                 to={item.to}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex h-[34px] items-center gap-2.5 rounded-[8px] px-2.5 text-[13.5px] font-[500]',
+                    'flex h-[36px] items-center gap-2.5 rounded-sm px-2.5 text-[13.5px] font-[500]',
                     'text-fg-muted transition-colors duration-150 hover:bg-surface-3 hover:text-fg',
                     isActive &&
-                      'bg-primary-soft font-[620] text-primary hover:bg-primary-soft hover:text-primary',
+                      'bg-primary-soft font-[620] text-primary shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--primary)_16%,transparent)] hover:bg-primary-soft hover:text-primary',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {isActive ? (
-                      <span className="absolute -left-3 top-[7px] bottom-[7px] w-[3px] rounded-r-[3px] bg-primary" />
-                    ) : null}
                     <Icon
                       className={cn(
                         'h-[17px] w-[17px] flex-none',
@@ -101,13 +97,11 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        <div className="mt-3 flex items-center gap-1 border-t border-border-base pt-3">
+        <div className="mt-2 flex items-center gap-1 rounded-md border border-border-base bg-surface-2 p-1.5">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1">
             <Avatar name={user?.name} email={user?.account} size={30} />
             <div className="min-w-0">
-              <div className="truncate text-[13px] font-[620]">
-                {user?.name || user?.account}
-              </div>
+              <div className="truncate text-[13px] font-[620]">{user?.name || user?.account}</div>
               <div className="truncate text-[11.5px] text-fg-subtle">
                 {user?.is_admin ? t('admin.users.roleAdmin') : t('admin.users.roleUser')}
               </div>
@@ -121,7 +115,7 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      <main className="min-w-0 overflow-y-auto px-8 py-6">
+      <main className="min-w-0 flex-1 overflow-y-auto rounded-none bg-surface px-5 py-5 lg:rounded-xl lg:border lg:border-border-base lg:px-7 lg:py-6 lg:shadow-e1">
         <Outlet />
       </main>
     </div>

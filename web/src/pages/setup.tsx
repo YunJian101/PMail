@@ -410,7 +410,7 @@ export default function SetupPage() {
     <div className="h-full overflow-y-auto bg-bg">
       <div className="mx-auto w-full max-w-[720px] px-6 py-10">
         <header className="mb-6 flex items-start gap-3">
-          <div className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-primary text-primary-fg shadow-e1">
+          <div className="grid h-9 w-9 flex-none place-items-center rounded-sm bg-primary text-primary-fg shadow-e1">
             <svg
               viewBox="0 0 24 24"
               className="h-[18px] w-[18px]"
@@ -466,7 +466,7 @@ export default function SetupPage() {
         </ol>
 
         {/* ---------------- 卡片 ---------------- */}
-        <div className="rounded-[18px] border border-border-base bg-surface shadow-e2">
+        <div className="rounded-xl border border-border-base bg-surface shadow-e1">
           <div className="px-6 py-6">
             {step === 0 ? (
               <>
@@ -543,7 +543,7 @@ export default function SetupPage() {
                 </div>
 
                 {/* 公网 IP：纯本地替换，填完立刻反映到下面的 A 记录，不需要联网也不用刷新 */}
-                <div className="mb-4 rounded-xl border border-border-base bg-surface-2 px-3.5 py-3">
+                <div className="mb-4 rounded-md border border-border-base bg-surface-2 px-3.5 py-3">
                   <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start">
                     <div className="min-w-0 flex-1">
                       <Field
@@ -586,7 +586,7 @@ export default function SetupPage() {
                     {Object.entries(dnsInfos).map(([domain, records]) => (
                       <section
                         key={domain}
-                        className="overflow-hidden rounded-xl border border-border-base"
+                        className="overflow-hidden rounded-md border border-border-base"
                       >
                         <header className="flex items-center gap-2 bg-surface-2 px-3.5 py-2.5">
                           <span className="truncate text-[13px] font-[650]">{domain}</span>
@@ -795,7 +795,7 @@ export default function SetupPage() {
                 )}
 
                 {certInfo?.found ? (
-                  <div className="mt-4 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2.5">
+                  <div className="mt-4 flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2.5">
                     <ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-success" />
                     <div className="min-w-0 text-[12px] leading-relaxed">
                       <p className="font-[600] text-fg">
@@ -814,7 +814,7 @@ export default function SetupPage() {
                 ) : null}
 
                 {certError ? (
-                  <p className="mt-3 break-all rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
+                  <p className="mt-3 break-all rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-[11.5px] leading-relaxed text-danger">
                     {certError}
                   </p>
                 ) : null}
@@ -861,7 +861,7 @@ export default function SetupPage() {
           </div>
 
           {/* 底部固定的上一步 / 下一步 */}
-          <div className="sticky bottom-0 flex items-center justify-between gap-3 rounded-b-[18px] border-t border-border-base bg-surface px-6 py-3.5">
+          <div className="sticky bottom-0 flex items-center justify-between gap-3 rounded-b-xl border-t border-border-base bg-surface px-6 py-3.5">
             <Button
               variant="secondary"
               disabled={step === 0 || busy}

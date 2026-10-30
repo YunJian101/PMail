@@ -39,7 +39,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       ref={ref}
       type={asChild ? undefined : (type ?? 'button')}
       className={cn(
-        'inline-flex select-none items-center justify-center whitespace-nowrap rounded-[10px] font-[550]',
+        'inline-flex select-none items-center justify-center whitespace-nowrap rounded-sm font-[550]',
         'transition-[background-color,border-color,color,box-shadow,transform] duration-150',
         'active:translate-y-px disabled:pointer-events-none disabled:opacity-50',
         VARIANTS[variant],

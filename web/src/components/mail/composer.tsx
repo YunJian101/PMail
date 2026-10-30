@@ -266,7 +266,7 @@ export function Composer() {
         if (event.target === event.currentTarget) close()
       }}
     >
-      <div className="flex max-h-[86vh] w-full max-w-[780px] flex-col overflow-hidden rounded-2xl border border-border-base bg-surface shadow-e3">
+      <div className="flex max-h-[86vh] w-full max-w-[780px] flex-col overflow-hidden rounded-xl border border-border-base bg-surface shadow-e3">
         <div className="flex items-center gap-2.5 border-b border-border-base bg-surface-2 px-4 py-3">
           <b className="text-[13.5px] font-[650]">{title}</b>
           {sendMutation.isPending ? (
@@ -335,7 +335,7 @@ export function Composer() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-0.5 border-b border-border-base px-4 py-1.5 text-fg-muted">
+        <div className="flex flex-wrap items-center gap-0.5 border-b border-border-base/70 px-4 py-1.5 text-fg-muted">
           {[
             {
               icon: <Bold className="h-4 w-4" />,
@@ -401,7 +401,7 @@ export function Composer() {
                 type="button"
                 onClick={tool.action}
                 className={cn(
-                  'grid h-7 w-[30px] place-items-center rounded-[7px] hover:bg-surface-3 hover:text-fg',
+                  'grid h-7 w-[30px] place-items-center rounded-xs hover:bg-surface-3 hover:text-fg',
                   tool.active && 'bg-primary-soft text-primary',
                 )}
               >
@@ -414,7 +414,7 @@ export function Composer() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="grid h-7 w-[30px] place-items-center rounded-[7px] hover:bg-surface-3 hover:text-fg"
+              className="grid h-7 w-[30px] place-items-center rounded-xs hover:bg-surface-3 hover:text-fg"
             >
               <Paperclip className="h-4 w-4" />
             </button>

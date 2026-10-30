@@ -39,7 +39,7 @@ export function EmptyState({
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded-[5px] border border-border-base bg-surface-2 px-1.5 py-px font-mono text-[10.5px] text-fg-subtle">
+    <kbd className="rounded-xs border border-border-base bg-surface-2 px-1.5 py-px font-mono text-[10.5px] text-fg-subtle">
       {children}
     </kbd>
   )

@@ -52,7 +52,7 @@ function AttachmentCard({ item, emailId }: { item: MailAttachmentMeta; emailId: 
     <button
       type="button"
       onClick={() => triggerDownload(attachmentDownloadUrl(emailId, item.Index))}
-      className="flex w-[232px] items-center gap-2.5 rounded-[10px] border border-border-base bg-surface-2 px-2.5 py-2 text-left transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-border-strong hover:shadow-e2"
+      className="flex w-[232px] items-center gap-2.5 rounded-sm border border-border-base bg-surface-2 px-2.5 py-2 text-left transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-border-strong hover:shadow-e2"
     >
       <span
         className={cn(
@@ -118,7 +118,7 @@ export function MailReader({
   if (loading) {
     return (
       <div className="flex h-full flex-col bg-surface">
-        <div className="h-14 border-b border-border-base" />
+        <div className="h-14 border-b border-border-base/70" />
         <div className="mx-auto w-full max-w-[760px] space-y-4 px-10 py-8">
           <Skeleton className="h-7 w-[70%]" />
           <div className="flex items-center gap-3">
@@ -258,7 +258,7 @@ export function MailReader({
             </div>
           </div>
 
-          <hr className="mb-5 border-0 border-t border-border-base" />
+          <hr className="mb-5 border-0 border-t border-border-base/70" />
 
           {html ? (
             <div
@@ -300,7 +300,7 @@ export function MailReader({
           <button
             type="button"
             onClick={onReply}
-            className="mt-8 flex w-full items-center gap-2.5 rounded-[14px] border border-border-base bg-surface-2 px-3.5 py-3 text-left text-[13px] text-fg-subtle transition-colors hover:border-border-strong"
+            className="mt-8 flex w-full items-center gap-2.5 rounded-md border border-border-base bg-surface-2 px-3.5 py-3 text-left text-[13px] text-fg-subtle transition-colors hover:border-border-strong"
           >
             <Reply className="h-4 w-4" />
             {t('mail.detail.replyPlaceholder', { name: displayName || from?.email || '' })}

@@ -209,7 +209,7 @@ export function RulesPage() {
       </div>
 
       <div className="mt-5 overflow-hidden rounded-xl border border-border-base bg-surface shadow-e1">
-        <div className="flex items-center gap-2 border-b border-border-base px-4 py-3">
+        <div className="flex items-center gap-2 px-4 pb-3 pt-3.5">
           <b className="text-[14px] font-[650]">{t('admin.rules')}</b>
           <span className="text-[12px] tabular-nums text-fg-subtle">{rules.length}</span>
         </div>
@@ -238,7 +238,7 @@ export function RulesPage() {
             return (
               <div
                 key={rule.id}
-                className="flex items-start gap-3 border-t border-border-base px-4 py-3.5 transition-colors hover:bg-surface-2"
+                className="flex items-start gap-3 border-t border-border-base/70 px-4 py-3.5 transition-colors hover:bg-surface-2"
               >
                 <Tooltip label={t('admin.rules.priority')}>
                   <div className="mt-0.5 grid h-[22px] min-w-[22px] flex-none place-items-center rounded-md bg-surface-3 px-1 text-[11px] font-[700] tabular-nums text-fg-subtle">

@@ -59,7 +59,7 @@ function FolderLink({ item, depth = 0 }: { item: FolderItem; depth?: number }) {
         style={depth > 0 ? { paddingLeft: 10 + depth * 14 } : undefined}
         className={({ isActive }) =>
           cn(
-            'group relative flex h-[36px] items-center gap-2.5 rounded-[12px] px-2.5 text-[13.5px] font-[500]',
+            'group relative flex h-[36px] items-center gap-2.5 rounded-sm px-2.5 text-[13.5px] font-[500]',
             'text-fg-muted transition-colors duration-150 hover:bg-surface-3 hover:text-fg',
             isActive &&
               'bg-primary-soft font-[620] text-primary shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--primary)_16%,transparent)] hover:bg-primary-soft hover:text-primary',
@@ -97,9 +97,9 @@ export function MailSidebar() {
   const items = folders.data ?? []
 
   return (
-    <aside className="flex h-full min-w-0 flex-col rounded-[22px] border border-border-base bg-surface px-2.5 pb-2.5 pt-3 shadow-e1">
+    <aside className="flex h-full min-w-0 flex-col rounded-xl border border-border-base bg-surface px-2.5 pb-2.5 pt-3 shadow-e1">
       <div className="flex items-center gap-2.5 px-2 pb-3.5">
-        <div className="grid h-9 w-9 place-items-center rounded-[12px] bg-gradient-to-br from-[#4f83ff] to-[#0ea5c6] shadow-[0_6px_16px_-8px_rgba(37,99,235,.9),inset_0_1px_0_rgba(255,255,255,.3)]">
+        <div className="grid h-9 w-9 place-items-center rounded-sm bg-gradient-to-br from-[#4f83ff] to-[#0ea5c6] shadow-[0_6px_16px_-8px_rgba(37,99,235,.9),inset_0_1px_0_rgba(255,255,255,.3)]">
           <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="#fff" strokeWidth={1.9}>
             <rect x="2.5" y="4.5" width="19" height="15" rx="3" />
             <path d="m3.5 7 7.4 5.3a2 2 0 0 0 2.2 0L20.5 7" strokeLinecap="round" />
@@ -116,7 +116,7 @@ export function MailSidebar() {
 
       <Button
         variant="primary"
-        className="mb-3 h-[44px] w-full rounded-[14px] text-[14px] shadow-[0_8px_20px_-10px_rgba(37,99,235,.9)]"
+        className="mb-3 h-[44px] w-full rounded-md text-[14px] shadow-[0_8px_20px_-10px_rgba(37,99,235,.9)]"
         onClick={() => startCompose('new')}
       >
         <PenLine className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function MailSidebar() {
         {folders.isLoading ? (
           <div className="space-y-2 px-2 py-1">
             {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-8 w-full rounded-[12px]" />
+              <Skeleton key={index} className="h-8 w-full rounded-sm" />
             ))}
           </div>
         ) : (
@@ -141,7 +141,7 @@ export function MailSidebar() {
             to="/admin/users"
             className={({ isActive }) =>
               cn(
-                'flex h-[36px] items-center gap-2.5 rounded-[12px] px-2.5 text-[13.5px] font-[500] text-fg-muted',
+                'flex h-[36px] items-center gap-2.5 rounded-sm px-2.5 text-[13.5px] font-[500] text-fg-muted',
                 'transition-colors hover:bg-surface-3 hover:text-fg',
                 isActive && 'bg-primary-soft text-primary',
               )
@@ -156,7 +156,7 @@ export function MailSidebar() {
           to="/admin/security"
           className={({ isActive }) =>
             cn(
-              'flex h-[36px] items-center gap-2.5 rounded-[12px] px-2.5 text-[13.5px] font-[500] text-fg-muted',
+              'flex h-[36px] items-center gap-2.5 rounded-sm px-2.5 text-[13.5px] font-[500] text-fg-muted',
               'transition-colors hover:bg-surface-3 hover:text-fg',
               isActive && 'bg-primary-soft text-primary',
             )
@@ -166,10 +166,10 @@ export function MailSidebar() {
           {t('nav.settings')}
         </NavLink>
 
-        <div className="mt-1.5 flex items-center gap-1 rounded-[16px] border border-border-base bg-surface-2 p-1.5">
+        <div className="mt-1.5 flex items-center gap-1 rounded-md border border-border-base bg-surface-2 p-1.5">
           <Dropdown>
             <DropdownTrigger asChild>
-              <button className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[12px] p-0.5 text-left">
+              <button className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm p-0.5 text-left">
                 <Avatar name={user?.name} email={user?.account} size={30} />
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-[620]">{user?.name || user?.account}</span>

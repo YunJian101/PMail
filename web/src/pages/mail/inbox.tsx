@@ -90,7 +90,7 @@ function MailRow({
         }
       }}
       className={cn(
-        'group relative mx-1.5 my-1 grid cursor-pointer grid-cols-[34px_1fr_auto] gap-2.5 rounded-[14px] px-3 py-2.5',
+        'group relative mx-1.5 my-1 grid cursor-pointer grid-cols-[34px_1fr_auto] gap-2.5 rounded-md px-3 py-2.5',
         'transition-colors duration-150',
         unread
           ? 'bg-[color-mix(in_srgb,var(--primary-soft)_55%,var(--surface))] hover:bg-primary-soft'
@@ -100,7 +100,7 @@ function MailRow({
       )}
     >
       {active ? (
-        <span className="pointer-events-none absolute inset-0 rounded-[14px] ring-[1.5px] ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]" />
+        <span className="pointer-events-none absolute inset-0 rounded-md ring-[1.5px] ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]" />
       ) : null}
 
       <div className="relative mt-px">
@@ -278,7 +278,7 @@ export function InboxPage() {
       {/* ---------------- 列表 ---------------- */}
       <section
         className={cn(
-          'min-w-0 flex-col overflow-hidden bg-surface md:rounded-[22px] md:border md:border-border-base md:shadow-e1',
+          'min-w-0 flex-col overflow-hidden bg-surface md:rounded-xl md:border md:border-border-base md:shadow-e1',
           selectedId ? 'hidden md:flex' : 'flex',
         )}
       >
@@ -351,7 +351,7 @@ export function InboxPage() {
         </div>
 
         {selection.length > 0 ? (
-          <div className="mx-2 mb-1.5 flex items-center gap-1.5 rounded-[12px] bg-primary-soft px-3 py-1.5">
+          <div className="mx-2 mb-1.5 flex items-center gap-1.5 rounded-sm bg-primary-soft px-3 py-1.5">
             <span className="text-[12.5px] font-[600] text-primary">
               {t('mail.select.count', { count: selection.length })}
             </span>
@@ -426,7 +426,7 @@ export function InboxPage() {
           )}
         </div>
 
-        <div className="m-2 mt-auto flex h-9 flex-none items-center justify-between rounded-[12px] bg-surface-2 px-2.5 text-[12px] text-fg-subtle">
+        <div className="m-2 mt-auto flex h-9 flex-none items-center justify-between rounded-sm bg-surface-2 px-2.5 text-[12px] text-fg-subtle">
           <span className="tabular-nums">
             {t('mail.pagination', { page: currentPage, total: totalPage })}
           </span>
@@ -456,7 +456,7 @@ export function InboxPage() {
       {/* ---------------- 阅读 ---------------- */}
       <div
         className={cn(
-          'min-h-0 min-w-0 overflow-hidden bg-surface md:rounded-[22px] md:border md:border-border-base md:shadow-e1',
+          'min-h-0 min-w-0 overflow-hidden bg-surface md:rounded-xl md:border md:border-border-base md:shadow-e1',
           selectedId ? 'block' : 'hidden md:block',
         )}
       >

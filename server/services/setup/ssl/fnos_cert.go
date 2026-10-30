@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +23,8 @@ type CertInfo struct {
 	Domain  string `json:"domain"`
 	Expire  string `json:"expire"`
 	Message string `json:"message"`
+	// 飞牛里发现的全部候选证书（按匹配度排序），没匹配上时给用户看清单
+	Candidates []CertCandidate `json:"candidates,omitempty"`
 }
 
 // fnosCertRoot 是飞牛自己管证书的目录。做成变量是为了让测试能指到临时目录。
@@ -56,38 +57,32 @@ func CertSummary() (string, time.Time, error) {
 // LoadFnOsCert 把飞牛自己管理的证书同步到 PMail 的 config/ssl 下。
 //
 // 飞牛的目录结构随版本变过（ssls/<域名>/<时间戳>/ 或 ssls/<时间戳>/），
-// 文件名也不固定（privkey.pem / fullchain.pem / *.key / *.crt ...）。
-// 所以这里不猜文件名：把候选目录按时间倒序扫一遍，按「内容里有 PRIVATE KEY /
-// CERTIFICATE」来挑，最后用 tls.X509KeyPair 验证能不能配对。
+// 文件名也不固定（privkey.pem / fullchain.pem / *.key / *.crt ...），所以不猜文件名：
+// 按内容挑出所有能配对的证书，再**按域名匹配**——只装覆盖 PMail 自己域名的那一张。
+// 一张都不覆盖时拒绝安装，并把飞牛里现有证书的清单回给前端。
 func LoadFnOsCert() CertInfo {
 	cfg, err := config.ReadConfig()
 	if err != nil {
 		return CertInfo{Message: err.Error()}
 	}
 
-	if _, err := os.Stat(fnosCertRoot); err != nil {
-		return CertInfo{Message: "读不到飞牛证书目录：" + fnosCertRoot + "（" + err.Error() + "）"}
+	cands, msg := collectCandidates(cfg)
+	if cands == nil {
+		return CertInfo{Message: msg}
 	}
 
-	dirs := collectCertDirs(fnosCertRoot, 3)
-	if len(dirs) == 0 {
-		return CertInfo{Message: "飞牛证书目录里还没有任何证书：" + fnosCertRoot}
-	}
-
-	tried := 0
-	for _, dir := range dirs {
-		for _, pair := range candidatePairs(dir) {
-			tried++
-			if info := installPEM(cfg, pair[0], pair[1], "fnos:"+dir); info.Found {
-				return info
-			}
+	wants := wantDomains(cfg)
+	best := pickBest(cands, wants)
+	if best == nil {
+		return CertInfo{
+			Message:    noMatchMessage(wants, cands),
+			Candidates: publicList(cands),
 		}
 	}
 
-	if tried == 0 {
-		return CertInfo{Message: "飞牛证书目录里有 " + strconv.Itoa(len(dirs)) + " 个子目录，但没找到可配对的私钥与证书"}
-	}
-	return CertInfo{Message: "飞牛证书目录里找到 " + strconv.Itoa(tried) + " 组文件，但私钥与证书都配不上对"}
+	info := installPEM(cfg, best.keyPEM, best.crtPEM, "fnos:"+best.Dir)
+	info.Candidates = publicList(cands)
+	return info
 }
 
 // SaveCertPEM 接收前端粘贴的 PEM，写入 config/ssl 并校验能否配对
@@ -115,7 +110,7 @@ func SyncFnOsCert(force bool) (bool, CertInfo) {
 	return syncIfChanged(force)
 }
 
-// syncIfChanged 比较飞牛最新证书与本地 config/ssl 的内容，不同才覆盖。
+// syncIfChanged 比较「按域名匹配到的那张飞牛证书」与本地 config/ssl 的内容，不同才覆盖。
 func syncIfChanged(force bool) (bool, CertInfo) {
 	cfg, err := config.ReadConfig()
 	if err != nil {
@@ -127,52 +122,54 @@ func syncIfChanged(force bool) (bool, CertInfo) {
 		return false, CertInfo{Message: "当前证书是手动粘贴的，跳过自动同步"}
 	}
 
-	if _, err := os.Stat(fnosCertRoot); err != nil {
-		return false, CertInfo{Message: "读不到飞牛证书目录：" + fnosCertRoot}
+	cands, msg := collectCandidates(cfg)
+	if cands == nil {
+		return false, CertInfo{Message: msg}
 	}
 
-	dirs := collectCertDirs(fnosCertRoot, 3)
-	if len(dirs) == 0 {
-		return false, CertInfo{Message: "飞牛证书目录里还没有任何证书：" + fnosCertRoot}
-	}
-
-	// 找到飞牛侧最新的一对可用 PEM
-	for _, dir := range dirs {
-		for _, pair := range candidatePairs(dir) {
-			keyPEM, crtPEM := pair[0], pair[1]
-
-			localKey, errKey := os.ReadFile(cfg.SSLPrivateKeyPath)
-			localCrt, errCrt := os.ReadFile(cfg.SSLPublicKeyPath)
-			if errKey == nil && errCrt == nil &&
-				bytes.Equal(localKey, keyPEM) && bytes.Equal(localCrt, crtPEM) {
-				// 内容一致：顺便把老配置缺失的来源补上，下次续期就能自动跟
-				if source != "fnos" {
-					adoptFnOsSource(cfg)
-					log.Infof("local certificate matches fnOS, sslSource set to fnos (%s)", dir)
-				}
-				if leaf, err := parseLeaf(crtPEM); err == nil {
-					return false, CertInfo{
-						Found:  true,
-						Source: "fnos:" + dir,
-						Domain: leaf.Subject.CommonName,
-						Expire: leaf.NotAfter.Format("2006-01-02"),
-					}
-				}
-				return false, CertInfo{Found: true, Source: "fnos:" + dir}
-			}
-
-			// 内容不同。来源不明时不动手，避免把用户自己的证书顶掉
-			if source != "fnos" && !force {
-				return false, CertInfo{Message: "本地证书与飞牛证书不一致，且来源未知，已跳过（可在设置页手动重新加载）"}
-			}
-
-			if info := installPEM(cfg, keyPEM, crtPEM, "fnos:"+dir); info.Found {
-				log.Infof("fnos cert synced from %s: domain=%s expire=%s", dir, info.Domain, info.Expire)
-				return true, info
-			}
+	wants := wantDomains(cfg)
+	best := pickBest(cands, wants)
+	if best == nil {
+		// 一张都不覆盖：不装、不动本地证书，把候选清单回给界面
+		return false, CertInfo{
+			Message:    noMatchMessage(wants, cands),
+			Candidates: publicList(cands),
 		}
 	}
-	return false, CertInfo{Message: "飞牛证书目录里没有找到成对的私钥与证书"}
+
+	localKey, errKey := os.ReadFile(cfg.SSLPrivateKeyPath)
+	localCrt, errCrt := os.ReadFile(cfg.SSLPublicKeyPath)
+	if errKey == nil && errCrt == nil &&
+		bytes.Equal(localKey, best.keyPEM) && bytes.Equal(localCrt, best.crtPEM) {
+		// 内容一致：顺便把老配置缺失的来源补上，下次续期就能自动跟
+		if source != "fnos" {
+			adoptFnOsSource(cfg)
+			log.Infof("local certificate matches fnOS, sslSource set to fnos (%s)", best.Dir)
+		}
+		return false, CertInfo{
+			Found:      true,
+			Source:     "fnos:" + best.Dir,
+			Domain:     best.Domain,
+			Expire:     best.Expire,
+			Candidates: publicList(cands),
+		}
+	}
+
+	// 内容不同。来源不明时不动手，避免把用户自己的证书顶掉
+	if source != "fnos" && !force {
+		info := CertInfo{
+			Message:    "本地证书与飞牛证书不一致，且来源未知，已跳过（可在设置页手动重新加载）",
+			Candidates: publicList(cands),
+		}
+		return false, info
+	}
+
+	info := installPEM(cfg, best.keyPEM, best.crtPEM, "fnos:"+best.Dir)
+	if info.Found {
+		log.Infof("fnos cert synced from %s: domain=%s expire=%s", best.Dir, info.Domain, info.Expire)
+	}
+	info.Candidates = publicList(cands)
+	return info.Found, info
 }
 
 // adoptFnOsSource 把来源标成 fnos 并落盘（老版本配置升级兼容用）

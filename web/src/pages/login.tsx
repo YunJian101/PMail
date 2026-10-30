@@ -67,7 +67,7 @@ export default function LoginPage() {
 
         <div className="relative my-auto w-full max-w-[470px]">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-[10px] border border-white/25 bg-white/15 backdrop-blur-sm">
+            <div className="grid h-9 w-9 place-items-center rounded-sm border border-white/25 bg-white/15 backdrop-blur-sm">
               <svg
                 viewBox="0 0 24 24"
                 className="h-[18px] w-[18px]"
@@ -95,7 +95,7 @@ export default function LoginPage() {
             {FEATURES.map((feature) => (
               <div
                 key={feature.key}
-                className="flex items-start gap-3 rounded-xl border border-white/15 bg-white/10 px-3.5 py-3 backdrop-blur-sm"
+                className="flex items-start gap-3 rounded-md border border-white/15 bg-white/10 px-3.5 py-3 backdrop-blur-sm"
               >
                 <span className="mt-px grid h-8 w-8 flex-none place-items-center rounded-lg bg-white/15">
                   {feature.icon}

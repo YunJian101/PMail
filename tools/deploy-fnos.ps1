@@ -127,28 +127,42 @@ Check 'app is running' $running ($lastStatus -replace "`n", ' ')
 
 $base = "http://$Address`:$WebPort"
 $ping = Invoke-Api "$base/api/ping"
-Check 'web port answers (setup mode)' ($ping.Status -eq 200) "$base/api/ping -> $($ping.Text)"
-Check 'not installed yet -> /api/ping 402 (login blocked)' ($ping.Json.errorNo -eq 402) $ping.Text
+Check 'web port answers' ($ping.Status -eq 200) "$base/api/ping -> $($ping.Text)"
 
 $page = $null
 try {
     $page = Invoke-WebRequest -Uri "$base/" -UseBasicParsing -TimeoutSec 20
 } catch { }
-Check 'setup page served' ($page -ne $null -and $page.Content -match 'id="root"') $base
+Check 'SPA page served' ($page -ne $null -and $page.Content -match 'id="root"') $base
 
-$setupDb = Invoke-Api "$base/api/setup" '{"action":"get","step":"database"}'
-Check '/api/setup works' ($setupDb.Json.errorNo -eq 0) $setupDb.Text
+# The device may already be installed (the data dir survives uninstall), so accept both states.
+if ($ping.Json.errorNo -eq 402) {
+    Check 'not installed yet -> /api/ping 402 (login blocked)' $true $ping.Text
 
-$dns = Invoke-Api "$base/api/setup" '{"action":"get","step":"dns"}'
-Check 'DNS endpoint answers offline' ($dns.Json.errorNo -eq 0) $dns.Text
+    $setupDb = Invoke-Api "$base/api/setup" '{"action":"get","step":"database"}'
+    Check '/api/setup works' ($setupDb.Json.errorNo -eq 0) $setupDb.Text
 
-$fnos = Invoke-Api "$base/api/setup" '{"action":"loadFnOsCert","step":"ssl"}' 30
-$found = $fnos.Json.data.found
-if ($found -eq $true) {
-    Check 'fnOS certificate loaded' $true ("domain=" + $fnos.Json.data.domain + " expire=" + $fnos.Json.data.expire)
+    $dns = Invoke-Api "$base/api/setup" '{"action":"get","step":"dns"}'
+    Check 'DNS endpoint answers offline' ($dns.Json.errorNo -eq 0) $dns.Text
+
+    $fnos = Invoke-Api "$base/api/setup" '{"action":"loadFnOsCert","step":"ssl"}' 30
+    $found = $fnos.Json.data.found
+    if ($found -eq $true) {
+        Check 'fnOS certificate loaded' $true ("domain=" + $fnos.Json.data.domain + " expire=" + $fnos.Json.data.expire)
+    } else {
+        Write-Host ("  [WARN] fnOS certificate not loaded: " + $fnos.Json.data.message) -ForegroundColor Yellow
+        Check 'fnOS cert lookup answered (no cert on device)' ($null -ne $fnos.Json.data) $fnos.Text
+    }
 } else {
-    Write-Host ("  [WARN] fnOS certificate not loaded: " + $fnos.Json.data.message) -ForegroundColor Yellow
-    Check 'fnOS cert lookup answered (no cert on device)' ($null -ne $fnos.Json.data) $fnos.Text
+    Check 'already installed -> /api/ping 200' ($ping.Json.errorNo -eq 0) $ping.Text
+
+    $unauth = Invoke-Api "$base/api/user/info"
+    Check 'unauthenticated API is blocked' ($unauth.Json.errorNo -eq 403) $unauth.Text
+
+    $login = Invoke-Api "$base/api/login" '{"account":"__probe__","password":"__probe__"}'
+    Check 'login endpoint answers (wrong credentials rejected)' ($login.Json.errorNo -ne 0) $login.Text
+
+    Write-Host '  [INFO] device already finished setup; wizard checks skipped (data dir kept)' -ForegroundColor Cyan
 }
 
 $failed = @($results | Where-Object { -not $_.Ok })

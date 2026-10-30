@@ -95,7 +95,7 @@ export function FoldersPage() {
       </div>
 
       <div className="mt-5 overflow-hidden rounded-xl border border-border-base bg-surface shadow-e1">
-        <div className="flex items-center gap-2 border-b border-border-base px-4 py-3">
+        <div className="flex items-center gap-2 px-4 pb-3 pt-3.5">
           <b className="text-[14px] font-[650]">{t('admin.groups')}</b>
           <span className="text-[12px] tabular-nums text-fg-subtle">
             {customGroups.length}
@@ -122,7 +122,7 @@ export function FoldersPage() {
           <tbody>
             {listQuery.isLoading
               ? Array.from({ length: 3 }).map((_, index) => (
-                  <tr key={index} className="border-t border-border-base">
+                  <tr key={index} className="border-t border-border-base/70">
                     <td className="px-4 py-3" colSpan={4}>
                       <Skeleton className="h-7 w-full" />
                     </td>
@@ -148,7 +148,7 @@ export function FoldersPage() {
                   return (
                     <tr
                       key={group.id}
-                      className="border-t border-border-base transition-colors hover:bg-surface-2"
+                      className="border-t border-border-base/70 transition-colors hover:bg-surface-3"
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">

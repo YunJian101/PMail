@@ -30,6 +30,7 @@ import { Tooltip } from '@/components/ui/tooltip'
 import { EmptyState } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/dialog'
+import { Card, CardBody, CardHeader, PageHeader } from '@/components/ui/card'
 
 /** 后端 /api/user/list 的默认分页是 15，这里显式传，避免 offset 计算踩到 page_size=0 的坑 */
 const PAGE_SIZE = 10
@@ -65,16 +66,18 @@ function StatCard({
   hint?: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-border-base bg-surface px-4 py-3.5 shadow-e1">
-      <div className="flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
-        {icon}
-        {label}
-      </div>
-      <div className="mt-1.5 text-[23px] font-[700] leading-none tracking-[-0.02em] tabular-nums">
-        {value}
-      </div>
-      {hint ? <div className="mt-1.5 text-[11.5px] text-fg-subtle">{hint}</div> : null}
-    </div>
+    <Card>
+      <CardBody className="py-3.5">
+        <div className="flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
+          {icon}
+          {label}
+        </div>
+        <div className="mt-1.5 text-[23px] font-[700] leading-none tracking-[-0.02em] tabular-nums">
+          {value}
+        </div>
+        {hint ? <div className="mt-1.5 text-[11.5px] text-fg-subtle">{hint}</div> : null}
+      </CardBody>
+    </Card>
   )
 }
 
@@ -204,29 +207,29 @@ export function UsersPage() {
 
   return (
     <div>
-      <div className="flex items-end gap-3.5">
-        <div className="min-w-0">
-          <h1 className="m-0 text-[22px] font-[700] tracking-[-0.02em]">{t('admin.users')}</h1>
-          <p className="mt-0.5 text-[13px] text-fg-muted">{t('admin.users.desc')}</p>
-        </div>
-        <div className="ml-auto flex flex-none items-center gap-2">
-          <Tooltip label={t('common.refresh')}>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => void listQuery.refetch()}
-              disabled={listQuery.isFetching}
-              aria-label={t('common.refresh')}
-            >
-              <RefreshCw className={cn('h-4 w-4', listQuery.isFetching && 'animate-spin')} />
+      <PageHeader
+        title={t('admin.users')}
+        desc={t('admin.users.desc')}
+        actions={
+          <>
+            <Tooltip label={t('common.refresh')}>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => void listQuery.refetch()}
+                disabled={listQuery.isFetching}
+                aria-label={t('common.refresh')}
+              >
+                <RefreshCw className={cn('h-4 w-4', listQuery.isFetching && 'animate-spin')} />
+              </Button>
+            </Tooltip>
+            <Button variant="primary" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              {t('admin.users.new')}
             </Button>
-          </Tooltip>
-          <Button variant="primary" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            {t('admin.users.new')}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="mt-5 grid grid-cols-4 gap-3">
         <StatCard
@@ -252,13 +255,15 @@ export function UsersPage() {
         />
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-xl border border-border-base bg-surface shadow-e1">
-        <div className="flex items-center gap-2 border-b border-border-base px-4 py-3">
-          <b className="text-[14px] font-[650]">{t('admin.users.list')}</b>
-          <span className="text-[12px] tabular-nums text-fg-subtle">
-            {t('mail.pagination', { page: currentPage, total: totalPage })}
-          </span>
-        </div>
+      <Card className="mt-5 overflow-hidden">
+        <CardHeader
+          title={t('admin.users.list')}
+          actions={
+            <span className="text-[12px] tabular-nums text-fg-subtle">
+              {t('mail.pagination', { page: currentPage, total: totalPage })}
+            </span>
+          }
+        />
 
         <table className="w-full border-collapse">
           <thead>
@@ -280,7 +285,7 @@ export function UsersPage() {
           <tbody>
             {listQuery.isLoading
               ? Array.from({ length: 4 }).map((_, index) => (
-                  <tr key={index} className="border-t border-border-base">
+                  <tr key={index} className="border-t border-border-base/70">
                     <td className="px-4 py-3" colSpan={4}>
                       <Skeleton className="h-7 w-full" />
                     </td>
@@ -304,7 +309,7 @@ export function UsersPage() {
               ? users.map((user) => (
                   <tr
                     key={user.ID}
-                    className="border-t border-border-base transition-colors hover:bg-surface-2"
+                    className="border-t border-border-base/70 transition-colors hover:bg-surface-3"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -382,7 +387,7 @@ export function UsersPage() {
           </tbody>
         </table>
 
-        <div className="flex h-11 items-center justify-between border-t border-border-base px-4 text-[12px] text-fg-subtle">
+        <div className="flex h-11 items-center justify-between border-t border-border-base/70 px-4 text-[12px] text-fg-subtle">
           <span className="tabular-nums">
             {t('mail.pagination', { page: currentPage, total: totalPage })}
           </span>
@@ -407,7 +412,7 @@ export function UsersPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ---------------- 新建 / 编辑 ---------------- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -472,14 +477,14 @@ export function UsersPage() {
             </Field>
 
             {/* 后端 user/create|edit 不接收 is_admin，这里不做开关，避免给出一个存不进去的控件 */}
-            <div className="flex items-start gap-2 rounded-[10px] border border-border-base bg-surface-2 px-3 py-2.5">
+            <div className="flex items-start gap-2 rounded-sm border border-border-base bg-surface-2 px-3 py-2.5">
               <Info className="mt-0.5 h-3.5 w-3.5 flex-none text-fg-subtle" />
               <span className="text-[12px] leading-relaxed text-fg-subtle">
                 {t('admin.users.form.isAdminUnsupported')}
               </span>
             </div>
 
-            <div className="mt-2 flex items-center justify-between rounded-[10px] border border-border-base px-3 py-2.5">
+            <div className="mt-2 flex items-center justify-between rounded-sm border border-border-base px-3 py-2.5">
               <span className="text-[13px] font-[550] text-fg">
                 {t('admin.users.form.disabled')}
               </span>

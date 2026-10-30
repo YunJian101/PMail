@@ -19,6 +19,12 @@ import (
 // makePair 生成一对自签证书，返回 (私钥 PEM, 证书 PEM)
 func makePair(t *testing.T, cn string) ([]byte, []byte) {
 	t.Helper()
+	return makePairFor(t, cn)
+}
+
+// makePairFor 生成自签证书，并写入 SAN（hosts），用来测「按域名匹配」
+func makePairFor(t *testing.T, cn string, hosts ...string) ([]byte, []byte) {
+	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -31,6 +37,7 @@ func makePair(t *testing.T, cn string) ([]byte, []byte) {
 	tmpl := x509.Certificate{
 		SerialNumber:          serial,
 		Subject:               pkix.Name{CommonName: cn},
+		DNSNames:              hosts,
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().AddDate(1, 0, 0),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
@@ -89,14 +96,19 @@ func setupSandbox(t *testing.T) (root string, fnosDir string) {
 }
 
 // writeFnOsCert 在飞牛目录下造一套证书：ssls/<域名>/<时间戳>/{privkey.pem,fullchain.pem}
-func writeFnOsCert(t *testing.T, fnosDir, domain, stamp, cn string) {
+// hosts 是写进证书 SAN 的域名；不传就默认 *.example.test（覆盖沙箱里的 mail.example.test）
+func writeFnOsCert(t *testing.T, fnosDir, domain, stamp, cn string, hosts ...string) {
 	t.Helper()
+
+	if len(hosts) == 0 {
+		hosts = []string{"*.example.test"}
+	}
 
 	dir := filepath.Join(fnosDir, domain, stamp)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir fnos cert dir: %v", err)
 	}
-	keyPEM, crtPEM := makePair(t, cn)
+	keyPEM, crtPEM := makePairFor(t, cn, hosts...)
 	if err := os.WriteFile(filepath.Join(dir, "privkey.pem"), keyPEM, 0o600); err != nil {
 		t.Fatalf("write key: %v", err)
 	}
@@ -154,7 +166,7 @@ func TestSyncIfChanged_CopiesThenNoop(t *testing.T) {
 
 func TestSyncIfChanged_PicksUpRenewal(t *testing.T) {
 	root, fnosDir := setupSandbox(t)
-	writeFnOsCert(t, fnosDir, "example.test", "1700000000", "old.example.test")
+	writeFnOsCert(t, fnosDir, "example.test", "1700000000", "old.example.test", "*.example.test")
 
 	if changed, _ := syncIfChanged(false); !changed {
 		t.Fatal("initial sync should change")
@@ -163,7 +175,7 @@ func TestSyncIfChanged_PicksUpRenewal(t *testing.T) {
 
 	// 模拟飞牛续期：新的时间戳目录（更新）
 	time.Sleep(10 * time.Millisecond)
-	writeFnOsCert(t, fnosDir, "example.test", "1800000000", "new.example.test")
+	writeFnOsCert(t, fnosDir, "example.test", "1800000000", "new.example.test", "*.example.test")
 
 	changed, info := syncIfChanged(false)
 	if !changed {
@@ -295,5 +307,88 @@ func TestSyncIfChanged_AdoptsUnknownSourceWhenIdentical(t *testing.T) {
 	}
 	if cfg.SSLSource != "fnos" {
 		t.Fatalf("sslSource should be adopted as fnos, got %q", cfg.SSLSource)
+	}
+}
+
+// 关键场景：飞牛里有两张证书，更新那张不是邮箱域名的 —— 必须选覆盖邮箱域名的老证书
+func TestSyncIfChanged_PicksByDomainNotNewest(t *testing.T) {
+	root, fnosDir := setupSandbox(t)
+
+	// 老的：覆盖 example.test（沙箱里的邮箱域名）
+	writeFnOsCert(t, fnosDir, "example.test", "1700000000", "*.example.test", "*.example.test")
+	// 新的：覆盖别的域名
+	time.Sleep(10 * time.Millisecond)
+	writeFnOsCert(t, fnosDir, "other.test", "1900000000", "*.other.test", "*.other.test")
+
+	changed, info := syncIfChanged(false)
+	if !changed {
+		t.Fatalf("should install the matching cert, got %+v", info)
+	}
+	if info.Domain != "*.example.test" {
+		t.Fatalf("must pick the cert covering example.test, got %q", info.Domain)
+	}
+	if len(info.Candidates) != 2 {
+		t.Fatalf("expected 2 candidates, got %d", len(info.Candidates))
+	}
+
+	// 落到本地的也应该是覆盖邮箱域名的那张
+	leafPEM, err := os.ReadFile(filepath.Join(root, "config", "ssl", "public.crt"))
+	if err != nil {
+		t.Fatalf("read installed cert: %v", err)
+	}
+	leaf, err := parseLeaf(leafPEM)
+	if err != nil {
+		t.Fatalf("parse installed cert: %v", err)
+	}
+	if !hostCovered(certNames(leaf), "mail.example.test") {
+		t.Fatalf("installed cert must cover mail.example.test, got %v", certNames(leaf))
+	}
+}
+
+// 一张都不覆盖邮箱域名时：拒绝安装，并把候选清单回给前端
+func TestSyncIfChanged_RefusesWhenNoDomainMatches(t *testing.T) {
+	root, fnosDir := setupSandbox(t)
+	writeFnOsCert(t, fnosDir, "other.test", "1900000000", "*.other.test", "*.other.test")
+
+	changed, info := syncIfChanged(false)
+	if changed {
+		t.Fatalf("must not install a cert for another domain, got %+v", info)
+	}
+	if info.Message == "" {
+		t.Fatal("expected an explanation when nothing matches")
+	}
+	if len(info.Candidates) != 1 || info.Candidates[0].Matched {
+		t.Fatalf("candidates should be reported and marked unmatched: %+v", info.Candidates)
+	}
+	// 本地没有证书文件被写出来
+	if _, err := os.Stat(filepath.Join(root, "config", "ssl", "public.crt")); err == nil {
+		t.Fatal("must not write any certificate when nothing matches")
+	}
+}
+
+func TestHostCovered(t *testing.T) {
+	cases := []struct {
+		name  string
+		names []string
+		host  string
+		want  bool
+	}{
+		{"exact", []string{"mail.a.test"}, "mail.a.test", true},
+		{"wildcard one level", []string{"*.a.test"}, "mail.a.test", true},
+		{"wildcard smtp", []string{"*.a.test"}, "smtp.a.test", true},
+		{"wildcard not bare domain", []string{"*.a.test"}, "a.test", false},
+		{"wildcard not multi level", []string{"*.a.test"}, "a.b.a.test", false},
+		{"different domain", []string{"*.b.test"}, "mail.a.test", false},
+		{"case insensitive", []string{"*.A.Test"}, "MAIL.a.test", true},
+		{"trailing dot", []string{"mail.a.test."}, "mail.a.test", true},
+		{"empty host", []string{"*.a.test"}, "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hostCovered(tc.names, tc.host); got != tc.want {
+				t.Fatalf("hostCovered(%v, %q) = %v, want %v", tc.names, tc.host, got, tc.want)
+			}
+		})
 	}
 }

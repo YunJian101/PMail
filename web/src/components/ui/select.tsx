@@ -76,7 +76,7 @@ export function Select({
             'disabled:cursor-not-allowed disabled:opacity-60',
             variant === 'plain'
               ? 'h-7 rounded-md border-0 bg-transparent px-0 hover:text-primary focus:outline-none'
-              : 'h-10 rounded-[10px] border border-border-base bg-surface px-3 hover:border-border-strong focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-[var(--ring)]',
+              : 'h-10 rounded-sm border border-border-base bg-surface px-3 hover:border-border-strong focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-[var(--ring)]',
             variant !== 'plain' && open && 'border-primary ring-[3px] ring-[var(--ring)]',
             className,
           )}
@@ -97,7 +97,7 @@ export function Select({
         <Popover.Content
           align="start"
           sideOffset={6}
-          className="z-50 max-h-[280px] w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-xl border border-border-base bg-surface p-1 shadow-e3"
+          className="z-50 max-h-[280px] w-[var(--radix-popover-trigger-width)] overflow-y-auto rounded-lg border border-border-base bg-surface p-1 shadow-e3"
         >
           {options.map((option) => {
             const active = option.value === value
@@ -108,7 +108,7 @@ export function Select({
                 disabled={option.disabled}
                 onClick={() => choose(option.value)}
                 className={cn(
-                  'flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-fg',
+                  'flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-[13px] text-fg',
                   'transition-colors hover:bg-surface-3 disabled:pointer-events-none disabled:opacity-50',
                   active && 'font-[600] text-primary',
                 )}

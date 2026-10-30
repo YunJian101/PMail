@@ -17,7 +17,7 @@ export const DropdownContent = React.forwardRef<
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-[190px] overflow-hidden rounded-xl border border-border-base bg-surface p-1 shadow-e3',
+          'z-50 min-w-[190px] overflow-hidden rounded-lg border border-border-base bg-surface p-1 shadow-e3',
           className,
         )}
         {...props}
@@ -34,7 +34,7 @@ export const DropdownItem = React.forwardRef<
     <DropdownPrimitive.Item
       ref={ref}
       className={cn(
-        'flex h-8 cursor-pointer select-none items-center gap-2 rounded-lg px-2 text-[13px] text-fg outline-none',
+        'flex h-8 cursor-pointer select-none items-center gap-2 rounded-sm px-2 text-[13px] text-fg outline-none',
         'data-[highlighted]:bg-surface-3 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         danger && 'text-danger data-[highlighted]:bg-[color-mix(in_srgb,var(--danger)_12%,transparent)]',
         className,
@@ -52,7 +52,7 @@ export const DropdownCheckItem = React.forwardRef<
     <DropdownPrimitive.CheckboxItem
       ref={ref}
       className={cn(
-        'flex h-8 cursor-pointer select-none items-center gap-2 rounded-lg px-2 text-[13px] text-fg outline-none',
+        'flex h-8 cursor-pointer select-none items-center gap-2 rounded-sm px-2 text-[13px] text-fg outline-none',
         'data-[highlighted]:bg-surface-3',
         className,
       )}

@@ -7,7 +7,7 @@ export const Tabs = TabsPrimitive.Root
 export function TabsList({ className, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn('inline-flex items-center gap-1 rounded-[10px] bg-surface-3 p-1', className)}
+      className={cn('inline-flex items-center gap-1 rounded-sm bg-surface-3 p-1', className)}
       {...props}
     />
   )
@@ -20,7 +20,7 @@ export function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        'inline-flex h-7 items-center justify-center rounded-[7px] px-3 text-[12.5px] font-[550] text-fg-muted',
+        'inline-flex h-7 items-center justify-center rounded-sm px-3 text-[12.5px] font-[550] text-fg-muted',
         'transition-colors hover:text-fg',
         'data-[state=active]:bg-surface data-[state=active]:text-fg data-[state=active]:shadow-e1',
         className,

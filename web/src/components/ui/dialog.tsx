@@ -28,7 +28,7 @@ export function DialogContent({
       <DialogPrimitive.Content
         className={cn(
           'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-40px)] -translate-x-1/2 -translate-y-1/2',
-          'overflow-hidden rounded-2xl border border-border-base bg-surface shadow-e3',
+          'overflow-hidden rounded-xl border border-border-base bg-surface shadow-e3',
           'focus:outline-none',
           width,
           className,
@@ -38,7 +38,7 @@ export function DialogContent({
         {children}
         {hideClose ? null : (
           <DialogPrimitive.Close
-            className="absolute right-3.5 top-3.5 grid h-8 w-8 place-items-center rounded-lg text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg"
+            className="absolute right-3.5 top-3.5 grid h-8 w-8 place-items-center rounded-sm text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg"
             aria-label="关闭"
           >
             <X className="h-4 w-4" />
@@ -59,7 +59,7 @@ export function DialogHeader({
   className?: string
 }) {
   return (
-    <div className={cn('border-b border-border-base px-5 py-4 pr-12', className)}>
+    <div className={cn('border-b border-border-base/70 px-5 py-4 pr-12', className)}>
       <DialogPrimitive.Title className="text-[15px] font-[650] tracking-[-0.01em] text-fg">
         {title}
       </DialogPrimitive.Title>

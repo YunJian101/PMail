@@ -46,7 +46,10 @@ COPY server/ ./
 # 把前端产物放进 go:embed 目录
 COPY --from=web /app/web/dist ./listen/http_server/dist
 
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o /out/pmail main.go
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
+    -ldflags "-s -w -X github.com/Jinnrry/pmail/utils/version.Version=${VERSION}" \
+    -o /out/pmail main.go
 
 # ---------- 3. 运行镜像 ----------
 FROM ${RUNTIME_IMAGE}

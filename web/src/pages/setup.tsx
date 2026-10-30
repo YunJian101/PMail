@@ -12,6 +12,7 @@ import { Field, Input, Textarea } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/empty'
 import { PageLoading, Spinner } from '@/components/ui/skeleton'
+import { VersionTag } from '@/components/ui/version-tag'
 
 /**
  * 安装接口只有一个入口：POST /api/setup，靠 {action, step} 分流。
@@ -906,7 +907,10 @@ export default function SetupPage() {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-[11.5px] text-fg-subtle">{t('setup.thanks')}</p>
+        <div className="mt-4 flex items-center justify-center gap-2 text-[11.5px] text-fg-subtle">
+          <span>{t('setup.thanks')}</span>
+          <VersionTag />
+        </div>
       </div>
     </div>
   )

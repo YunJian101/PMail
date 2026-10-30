@@ -9,6 +9,7 @@ import { LANGUAGES, currentLanguage, setLanguage } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/input'
 import { Tooltip } from '@/components/ui/tooltip'
+import { VersionTag } from '@/components/ui/version-tag'
 
 /** 左侧品牌区的三张特性卡，文案 key 成对出现（xxx / xxxDesc） */
 const FEATURES = [
@@ -197,6 +198,10 @@ export default function LoginPage() {
             <p className="mt-6 text-center text-[11.5px] leading-relaxed text-fg-subtle">
               {t('login.clientHint', { imap: 'imap', smtp: 'smtp' })}
             </p>
+
+            <div className="mt-4 flex justify-center">
+              <VersionTag />
+            </div>
           </div>
         </div>
       </section>

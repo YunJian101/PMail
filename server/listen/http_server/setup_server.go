@@ -27,6 +27,7 @@ func SetupStart() {
 		panic(err)
 	}
 	mux.Handle("/", http.FileServer(http.FS(fe)))
+	mux.HandleFunc("/api/version", controllers.VersionInfo)
 	mux.HandleFunc("/api/setup", contextIterceptor(controllers.Setup))
 	// 安装模式下其它接口一律回 402「尚未完成安装」。
 	// 这样前端能稳定判断出「该去向导」，不会把登录页/收件箱放出来

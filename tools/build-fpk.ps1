@@ -114,7 +114,16 @@ try {
     $env:CGO_ENABLED = '0'
     $env:GOOS = 'linux'
     $env:GOARCH = 'amd64'
-    & $GoExe build -trimpath -ldflags '-s -w' -o $binPath .
+    # 版本号注入：单一来源就是 manifest 里的 version，前端 /api/version 与启动日志都读它
+$buildTime = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+$gitHash = 'local'
+if (Test-Path (Join-Path $ws '.git')) {
+    $hash = (& git -C $ws rev-parse --short HEAD 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $hash) { $gitHash = $hash.Trim() }
+}
+$ldflags = "-s -w -X github.com/Jinnrry/pmail/utils/version.Version=$Version -X github.com/Jinnrry/pmail/utils/version.BuildTime=$buildTime -X github.com/Jinnrry/pmail/utils/version.GitHash=$gitHash"
+Write-Host "==> ldflags: version=$Version build=$buildTime hash=$gitHash" -ForegroundColor DarkGray
+& $GoExe build -trimpath -ldflags $ldflags -o $binPath .
     if ($LASTEXITCODE -ne 0) { throw 'cross-compile failed' }
 }
 finally {

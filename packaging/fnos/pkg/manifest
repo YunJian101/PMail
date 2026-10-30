@@ -1,5 +1,5 @@
 appname               = pmail
-version               = 2.0.4beta
+version               = 2.0.5beta
 display_name          = PMail
 desc                  = 自建域名邮箱：SMTP / IMAP / POP3 收发信 + React 网页端。默认占用 25/465/587/993/110/995 与 8080，端口冲突可改 ${TRIM_PKGVAR}/ports.env 后重启。
 platform              = x86

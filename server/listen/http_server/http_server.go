@@ -31,6 +31,7 @@ func router(mux *http.ServeMux) {
 	// 挑战请求类似这样 /.well-known/acme-challenge/QPyMAyaWw9s5JvV1oruyqWHG7OqkHMJEHPoUz2046KM
 	mux.HandleFunc("/.well-known/", controllers.AcmeChallenge)
 	mux.HandleFunc("/api/ping", controllers.Ping)
+	mux.HandleFunc("/api/version", controllers.VersionInfo) // 不需要登录，登录页也要显示版本
 	mux.HandleFunc("/api/login", contextIterceptor(controllers.Login))
 	mux.HandleFunc("/api/logout", contextIterceptor(controllers.Logout))
 	mux.HandleFunc("/api/group", contextIterceptor(controllers.GetUserGroup))

@@ -45,6 +45,10 @@ func Init(serverVersion string) {
 		if err != nil {
 			panic(err)
 		}
+
+		// 数据库就绪后修一次历史遗留的「邮箱域名填成 smtp.xxx」问题（幂等、有备份）
+		migrateMailDomain()
+
 		session.Init()
 		hooks.Init(serverVersion)
 		// smtp server start

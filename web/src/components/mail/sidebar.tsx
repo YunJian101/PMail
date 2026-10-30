@@ -31,6 +31,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip } from '@/components/ui/tooltip'
+import { VersionTag } from '@/components/ui/version-tag'
 import {
   Dropdown,
   DropdownContent,
@@ -214,6 +215,10 @@ export function MailSidebar() {
               {resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </Tooltip>
+        </div>
+
+        <div className="flex justify-center pt-2">
+          <VersionTag />
         </div>
       </div>
     </aside>

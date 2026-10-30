@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardBody, CardHeader, PageHeader } from '@/components/ui/card'
+import { VersionTag } from '@/components/ui/version-tag'
 
 interface SslInfo {
   domain: string
@@ -197,6 +198,16 @@ export function SettingsPage() {
       <div className="mt-4">
         <SslCard />
       </div>
+
+      <Card className="mt-4">
+        <CardBody className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+          <span className="text-[12.5px] font-[550] text-fg-muted">{t('admin.settings.version')}</span>
+          <VersionTag withBuild />
+          <span className="ml-auto text-[11.5px] text-fg-subtle">
+            {t('admin.settings.restartHint')}
+          </span>
+        </CardBody>
+      </Card>
 
       <div className="mt-4 flex items-start gap-2.5 rounded-md border border-border-base bg-surface-2 px-4 py-3">
         <Info className="mt-0.5 h-4 w-4 flex-none text-fg-subtle" />

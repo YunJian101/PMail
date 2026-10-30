@@ -300,6 +300,9 @@ try {
     $profile = Invoke-Api "$httpUrl/api/user/profile" @{ name = 'E2E Admin' }
     Check 'user can change own display name' ($profile.Json.errorNo -eq 0 -and $profile.Json.data.name -eq 'E2E Admin') $profile.Text
 
+    $infoAfterRename = Invoke-Api "$httpUrl/api/user/info"
+    Check 'user/info reflects the new display name right away' ($infoAfterRename.Json.data.name -eq 'E2E Admin') $infoAfterRename.Text
+
     $badOld = Invoke-Api "$httpUrl/api/settings/modify_password" @{ old_password = 'wrong-one'; password = 'NewPassw0rd!e2e' }
     Check 'password change rejected when old password is wrong' ($badOld.Json.errorNo -ne 0) $badOld.Text
 
@@ -328,12 +331,25 @@ try {
     Check 'new user shows up in the list' ($null -ne $blockedUser) $userList.Text
 
     if ($blockedUser) {
+        $adminSession = $session
+        $blockedWebSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $session = $blockedWebSession
+        $blockedFirstLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'blocked'; password = 'BlockedPass1!' }
+        Check 'new user can log in before being disabled' ($blockedFirstLogin.Json.errorNo -eq 0) $blockedFirstLogin.Text
+        $session = $adminSession
+
         $raw = '{"id":' + $blockedUser.ID + ',"account":"blocked","username":"Blocked","disabled":1}'
         $disable = Invoke-Api "$httpUrl/api/user/edit" @{ __raw = $raw }
         Check 'admin can disable another user' ($disable.Json.errorNo -eq 0) $disable.Text
 
         $blockedLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'blocked'; password = 'BlockedPass1!' }
         Check 'disabled account gets a clear reason' ($blockedLogin.Json.errorNo -ne 0 -and ($blockedLogin.Json.errorMsg -match '停用|disabled')) $blockedLogin.Text
+
+        # 用被停用用户之前拿到的会话再请求一次：应该被立刻踢下线
+        $session = $blockedWebSession
+        $kicked = Invoke-Api "$httpUrl/api/user/info"
+        Check 'session of a disabled user is invalidated immediately' ($kicked.Json.errorNo -ne 0) $kicked.Text
+        $session = $adminSession
     }
 
     # ---------- 11. on-disk result ----------

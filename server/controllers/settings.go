@@ -10,6 +10,7 @@ import (
 	"github.com/Jinnrry/pmail/dto/response"
 	"github.com/Jinnrry/pmail/i18n"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/session"
 	"github.com/Jinnrry/pmail/utils/context"
 	"github.com/Jinnrry/pmail/utils/password"
 	log "github.com/sirupsen/logrus"
@@ -106,6 +107,13 @@ func UpdateProfile(ctx *context.Context, w http.ResponseWriter, req *http.Reques
 	if _, err := db.Instance.ID(ctx.UserID).Cols("name").Update(&models.User{Name: name}); err != nil {
 		response.NewErrorResponse(response.ServerError, err.Error(), "").FPrint(w)
 		return
+	}
+
+	// 会话里那份用户快照同步更新，避免还有读快照的地方显示旧名字
+	if _, err := db.Instance.ID(ctx.UserID).Get(&user); err == nil {
+		if snapshot, err := json.Marshal(user); err == nil {
+			session.Instance.Put(ctx.Context, "user", string(snapshot))
+		}
 	}
 
 	response.NewSuccessResponse(map[string]string{

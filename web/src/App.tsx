@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { setRedirectHandler } from '@/api/client'
 import { useSession } from '@/store/session'
+import { useSessionRefreshOnFocus } from '@/lib/use-session-refresh'
 import { Spinner } from '@/components/ui/skeleton'
 import LoginPage from '@/pages/login'
 import SetupPage from '@/pages/setup'
@@ -53,6 +54,9 @@ export default function App() {
   const load = useSession((state) => state.load)
   const status = useSession((state) => state.status)
   const needsSetup = useSession((state) => state.needsSetup)
+
+  // 回到这个窗口时静默刷新会话：改名、被停用之类的变化能及时反映出来
+  useSessionRefreshOnFocus()
 
   // 后端用 errorNo 402/403 表示「未安装 / 未登录」，统一在这里跳转
   React.useEffect(() => {

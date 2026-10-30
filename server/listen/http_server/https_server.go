@@ -104,10 +104,26 @@ func contextIterceptor(h controllers.HandlerFunc) http.HandlerFunc {
 				_ = json.Unmarshal([]byte(user), &userInfo)
 			}
 			if userInfo.ID > 0 {
-				ctx.UserID = userInfo.ID
-				ctx.UserName = userInfo.Name
-				ctx.UserAccount = userInfo.Account
-				ctx.IsAdmin = userInfo.IsAdmin == 1
+				// 会话里只信任 user id，名字/账号/管理员标记每次从库里读：
+				// 否则改过显示名之后，用户自己的页面会一直显示登录时那个旧名字。
+				var fresh models.User
+				_, err := db.Instance.ID(userInfo.ID).Get(&fresh)
+				if err != nil || fresh.ID == 0 {
+					// 账号已被删除：会话立即失效，不等过期
+					session.Instance.Clear(ctx.Context)
+					response.NewErrorResponse(response.NeedLogin, i18n.GetText(ctx.Lang, "login_exp"), "").FPrint(w)
+					return
+				}
+				if fresh.Disabled == 1 {
+					// 账号已被停用：已登录的会话也要立刻失效
+					session.Instance.Clear(ctx.Context)
+					response.NewErrorResponse(response.NeedLogin, i18n.GetText(ctx.Lang, "account_disabled"), "").FPrint(w)
+					return
+				}
+				ctx.UserID = fresh.ID
+				ctx.UserName = fresh.Name
+				ctx.UserAccount = fresh.Account
+				ctx.IsAdmin = fresh.IsAdmin == 1
 			}
 
 			if userInfo.ID == 0 {

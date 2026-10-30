@@ -242,24 +242,35 @@ func saveEmail(ctx *context.Context, size int, email *parsemail.Email, sendUserI
 }
 
 func spfCheck(remoteAddress string, sender *parsemail.User, senderString string) bool {
-	//spf校验
-	ipAddress, _ := netip.ParseAddrPort(remoteAddress)
+	// 解析来源地址：解析不了就不下结论（误报比漏报更烦人）
+	ipAddress, err := netip.ParseAddrPort(remoteAddress)
+	if err != nil {
+		log.Debugf("spf: cannot parse remote address %q: %v", remoteAddress, err)
+		return true
+	}
 
 	ip := net.ParseIP(ipAddress.Addr().String())
-	if ip.IsPrivate() {
+	if ip == nil || ip.IsPrivate() {
 		return true
 	}
 
-	tmp := strings.Split(sender.EmailAddress, "@")
+	// 发件地址优先用 Sender 头，没有就用传进来的地址
+	from := ""
+	if sender != nil && sender.EmailAddress != "" {
+		from = sender.EmailAddress
+	}
+	if from == "" {
+		from = senderString
+	}
+	tmp := strings.Split(from, "@")
 	if len(tmp) < 2 {
-		return false
-	}
-
-	res := spf.CheckHost(ip, tmp[1], senderString, "")
-
-	if res == spf.None || res == spf.Pass {
-		// spf校验通过
+		// 连发件域名都拿不到，就不判失败（以前这里直接 return false，
+		// 导致所有没有 Sender 头的邮件都被标成"内容不安全"）
 		return true
 	}
-	return false
+
+	res := spf.CheckHost(ip, tmp[1], from, "")
+
+	// 只有明确的失败才算不通过：SoftFail(~all)/Neutral/None 都是常态，不是伪造
+	return res == spf.Pass || res == spf.None || res == spf.Neutral || res == spf.Softfail
 }

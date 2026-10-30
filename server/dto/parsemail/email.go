@@ -279,7 +279,9 @@ func NewEmailFromReader(to []string, r io.Reader, size int) *Email {
 	ret.Cc = buildUsers(m.Header.Values("Cc"))
 	ret.ReplyTo = buildUsers(m.Header.Values("ReplyTo"))
 	ret.Sender = buildUser(m.Header.Get("Sender"))
-	if ret.Sender == nil {
+	if ret.Sender == nil || ret.Sender.EmailAddress == "" {
+		// 没有 Sender 头（绝大多数邮件）时用 From 兜底，
+		// 否则 SPF 校验拿不到发件域名，会一律判成失败。
 		ret.Sender = ret.From
 	}
 
@@ -398,7 +400,9 @@ var emailAddressRe = regexp.MustCompile(`<(.*@.*)>`)
 func buildUser(str string) *User {
 	str = strings.TrimSpace(str)
 	if str == "" {
-		return &User{}
+		// 空头必须返回 nil：调用方靠 nil 判断"没有这个头"，
+		// 返回空对象会让「Sender 为空就退回 From」的兜底失效（SPF 校验因此永远拿不到发件域名）。
+		return nil
 	}
 
 	user := &User{}

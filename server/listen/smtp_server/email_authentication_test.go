@@ -90,9 +90,6 @@ func TestReceiveHooksAndDatabaseShareAuthenticationResult(t *testing.T) {
 		t.Fatalf("收信流程执行失败：%v", err)
 	}
 
-	assertDangerousAuthentication(t, "ReceiveParseAfter", capture.parseAfter)
-	assertDangerousAuthentication(t, "ReceiveSaveAfter", capture.saveAfter)
-
 	var saved models.Email
 	has, err := engine.Where("subject = ?", "authentication flow").Get(&saved)
 	if err != nil {
@@ -101,9 +98,11 @@ func TestReceiveHooksAndDatabaseShareAuthenticationResult(t *testing.T) {
 	if !has {
 		t.Fatal("未找到落库邮件")
 	}
-	if saved.SPFCheck != 0 || saved.DKIMCheck != 0 {
-		t.Fatalf("落库认证结果不正确：SPF=%d DKIM=%d", saved.SPFCheck, saved.DKIMCheck)
-	}
+
+	// 认证结果取决于 SPF/DKIM 的真实计算结果（跟网络/DNS 有关），
+	// 这里断言的是「钩子看到的 == 落库的」，而不是写死"两项都失败"。
+	assertAuthenticationMatchesDB(t, "ReceiveParseAfter", capture.parseAfter, &saved)
+	assertAuthenticationMatchesDB(t, "ReceiveSaveAfter", capture.saveAfter, &saved)
 }
 
 func TestSaveSentEmailIgnoresReceiveAuthentication(t *testing.T) {
@@ -141,12 +140,29 @@ func newAuthenticationTestEngine(t *testing.T) *xorm.Engine {
 	return engine
 }
 
-func assertDangerousAuthentication(t *testing.T, hookName string, authentication *parsemail.EmailAuthentication) {
+// assertAuthenticationMatchesDB 断言钩子看到的认证结果与落库的 SPF/DKIM 一致，
+// 且 Dangerous 只在两项都失败时才为 true。
+func assertAuthenticationMatchesDB(
+	t *testing.T,
+	hookName string,
+	authentication *parsemail.EmailAuthentication,
+	saved *models.Email,
+) {
 	t.Helper()
 	if authentication == nil {
 		t.Fatalf("%s 未收到认证结果", hookName)
 	}
-	if authentication.SPFPassed || authentication.DKIMPassed || !authentication.Dangerous {
-		t.Fatalf("%s 收到的认证结果不正确：%+v", hookName, authentication)
+
+	wantSPF := saved.SPFCheck == 1
+	wantDKIM := saved.DKIMCheck == 1
+	if authentication.SPFPassed != wantSPF {
+		t.Fatalf("%s 的 SPF 与落库不一致：hook=%v db=%d", hookName, authentication.SPFPassed, saved.SPFCheck)
+	}
+	if authentication.DKIMPassed != wantDKIM {
+		t.Fatalf("%s 的 DKIM 与落库不一致：hook=%v db=%d", hookName, authentication.DKIMPassed, saved.DKIMCheck)
+	}
+	if authentication.Dangerous != (!wantSPF && !wantDKIM) {
+		t.Fatalf("%s 的 Dangerous 与落库不一致：hook=%v SPF=%d DKIM=%d",
+			hookName, authentication.Dangerous, saved.SPFCheck, saved.DKIMCheck)
 	}
 }

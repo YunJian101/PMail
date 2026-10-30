@@ -269,7 +269,7 @@ export function MailReader({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-[14px] font-[650]">
                 <span className="truncate">{displayName || from?.email}</span>
-                {mail.spf_check === 0 || mail.dkim_check === 0 ? (
+                {mail.spf_check === 0 && mail.dkim_check === 0 ? (
                   <Badge tone="warning">{t('mail.dangerous')}</Badge>
                 ) : null}
               </div>

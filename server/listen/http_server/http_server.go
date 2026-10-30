@@ -44,6 +44,7 @@ func router(mux *http.ServeMux) {
 	mux.HandleFunc("/api/email/read", contextIterceptor(email.MarkRead))
 	mux.HandleFunc("/api/email/detail", contextIterceptor(email.EmailDetail))
 	mux.HandleFunc("/api/email/move", contextIterceptor(email.Move))
+	mux.HandleFunc("/api/email/restore", contextIterceptor(email.Restore))
 	mux.HandleFunc("/api/email/send", contextIterceptor(email.Send))
 	mux.HandleFunc("/api/settings/modify_password", contextIterceptor(controllers.ModifyPassword))
 	mux.HandleFunc("/api/settings/ssl_info", contextIterceptor(controllers.SslInfo))

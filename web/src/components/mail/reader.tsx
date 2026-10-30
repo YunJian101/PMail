@@ -15,6 +15,7 @@ import {
   Reply,
   ReplyAll,
   Trash2,
+  Undo2,
 } from 'lucide-react'
 import type { MailAttachmentMeta, MailDetail } from '@/api/types'
 import { attachmentDownloadUrl, triggerDownload } from '@/api/mail'
@@ -82,6 +83,9 @@ export interface ReaderProps {
   moveTargets: { label: string; groupId: number }[]
   onMove: (groupId: number) => void
   onToggleRead?: () => void
+  /** 当前在「已删除」箱：按钮变成「还原」 */
+  isTrash?: boolean
+  onRestore?: () => void
   /** 当前这封是否未读：决定按钮是「标为已读」还是「标为未读」 */
   isUnread?: boolean
   /** 窄屏下从阅读区返回列表 */
@@ -100,6 +104,8 @@ export function MailReader({
   onMove,
   onToggleRead,
   isUnread = false,
+  isTrash = false,
+  onRestore,
   onBack,
 }: ReaderProps) {
   const { t } = useTranslation()
@@ -186,21 +192,29 @@ export function MailReader({
             <Trash2 className="h-[18px] w-[18px]" />
           </Button>
         </Tooltip>
-        <Dropdown>
-          <DropdownTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={t('mail.action.moveTo')} disabled={moveTargets.length === 0}>
-              <FolderInput className="h-[18px] w-[18px]" />
+        {isTrash ? (
+          <Tooltip label={t('mail.action.restore')}>
+            <Button variant="ghost" size="icon" onClick={onRestore}>
+              <Undo2 className="h-[18px] w-[18px]" />
             </Button>
-          </DropdownTrigger>
-          <DropdownContent align="start">
-            {moveTargets.map((target) => (
-              <DropdownItem key={target.groupId} onSelect={() => onMove(target.groupId)}>
-                <FolderInput className="h-3.5 w-3.5" />
-                {target.label}
-              </DropdownItem>
-            ))}
-          </DropdownContent>
-        </Dropdown>
+          </Tooltip>
+        ) : (
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label={t('mail.action.moveTo')} disabled={moveTargets.length === 0}>
+                <FolderInput className="h-[18px] w-[18px]" />
+              </Button>
+            </DropdownTrigger>
+            <DropdownContent align="start">
+              {moveTargets.map((target) => (
+                <DropdownItem key={target.groupId} onSelect={() => onMove(target.groupId)}>
+                  <FolderInput className="h-3.5 w-3.5" />
+                  {target.label}
+                </DropdownItem>
+              ))}
+            </DropdownContent>
+          </Dropdown>
+        )}
         <Tooltip label={isUnread ? t('mail.action.markRead') : t('mail.action.markUnread')}>
           <Button variant="ghost" size="icon" onClick={onToggleRead}>
             {isUnread ? (

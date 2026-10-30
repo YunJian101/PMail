@@ -26,10 +26,11 @@ import {
 } from '@/api/mail'
 import { fetchFolders } from '@/api/folders'
 import type { FolderItem, MailListItem } from '@/api/types'
-import { slugToMoveTarget, slugToTag, tagToSlug } from '@/lib/folders'
+import { GROUP_CONST, slugToMoveTarget, slugToTag, tagToSlug } from '@/lib/folders'
 import { formatListTime, truncate } from '@/lib/format'
 import { cn, avatarTone } from '@/lib/utils'
 import { toast, errorText } from '@/lib/toast'
+import { restoreMail } from '@/api/mail'
 import { useCompose } from '@/store/compose'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -260,6 +261,18 @@ export function InboxPage() {
     onError: (error) => toast.error(errorText(error)),
   })
 
+  // 「已删除」里的邮件只能还原回原来的箱子
+  const restoreMutation = useMutation({
+    mutationFn: (ids: number[]) => restoreMail(ids),
+    onSuccess: () => {
+      setSelection([])
+      setSearchParams({}, { replace: true })
+      invalidate()
+      toast.success(t('mail.restored'))
+    },
+    onError: (error) => toast.error(errorText(error)),
+  })
+
   const moveMutation = useMutation({
     mutationFn: ({ ids, groupId }: { ids: number[]; groupId: number }) => moveMail(ids, groupId),
     onSuccess: () => {
@@ -283,14 +296,31 @@ export function InboxPage() {
 
   const moveTargets = folderItems.filter((item) => tagToSlug(item.tag) !== folder)
 
-  // 阅读区「移动到」下拉：把 tag 换算成后端要的 group_id
-  const readerMoveTargets = React.useMemo(
-    () =>
-      moveTargets
-        .map((item) => ({ label: item.label, groupId: slugToMoveTarget(tagToSlug(item.tag)) }))
-        .filter((item): item is { label: string; groupId: number } => item.groupId !== null),
-    [moveTargets],
-  )
+  // 阅读区「移动到」下拉：把 tag 换算成后端要的 group_id，
+  // 并按邮件性质（收到/发出）过滤，和后端 CheckMoveTarget 的规则保持一致
+  const mailType = detailQuery.data?.type
+  const readerMoveTargets = React.useMemo(() => {
+    if (folder === 'trash') return []
+    return moveTargets
+      .map((item) => ({ label: item.label, groupId: slugToMoveTarget(tagToSlug(item.tag)) }))
+      .filter((item): item is { label: string; groupId: number } => item.groupId !== null)
+      .filter((item) => {
+        if (mailType === undefined) return true
+        switch (item.groupId) {
+          case GROUP_CONST.INBOX:
+          case GROUP_CONST.JUNK:
+            // 收件箱/垃圾箱只收「收到的」邮件
+            return mailType === 0
+          case GROUP_CONST.SENT:
+          case GROUP_CONST.DRAFTS:
+            // 发件箱/草稿箱只收「发出的」邮件
+            return mailType === 1
+          default:
+            // 已删除和自定义分组都可以
+            return true
+        }
+      })
+  }, [moveTargets, mailType, folder])
 
   // 未读数（和侧边栏共用同一个 queryKey，15 秒刷新一次）
   const unreadQuery = useQuery({
@@ -516,6 +546,11 @@ export function InboxPage() {
           moveMutation.mutate({ ids: [selectedId], groupId })
         }}
         isUnread={detailIsUnread}
+        isTrash={folder === 'trash'}
+        onRestore={() => {
+          if (!selectedId) return
+          restoreMutation.mutate([selectedId])
+        }}
         onToggleRead={() => {
           if (!selectedId) return
           // 已读 -> 标为未读；未读 -> 标为已读

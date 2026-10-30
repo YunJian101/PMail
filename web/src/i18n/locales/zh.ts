@@ -127,6 +127,8 @@ const zh = {
   'mail.select.invert': '反选',
   'mail.select.count': '已选 {count} 封',
   'mail.action.markRead': '标记已读',
+  'mail.action.restore': '还原到原来的箱子',
+  'mail.restored': '已还原',
   'mail.action.markUnread': '标记未读',
   'mail.action.move': '移动到',
   'mail.action.delete': '删除',

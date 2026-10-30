@@ -126,6 +126,8 @@ const en: Dict = {
   'mail.select.invert': 'Invert',
   'mail.select.count': '{count} selected',
   'mail.action.markRead': 'Mark as read',
+  'mail.action.restore': 'Restore to previous folder',
+  'mail.restored': 'Restored',
   'mail.action.markUnread': 'Mark as unread',
   'mail.action.move': 'Move to',
   'mail.action.delete': 'Delete',

@@ -328,6 +328,77 @@ func getGroupNum(ctx *context.Context, groupName string, mustUnread bool) int {
 // 关键：group_id 也一起写成目标箱子的编号，而不是重置成 0。
 // 以前只改 status、把 group_id 归零，导致「group_id=0」既表示"从没移动过"、
 // 也表示"移动到另一个内置箱了"，列表无法区分，于是邮件会同时出现在两个箱子里。
+// CheckMoveTarget 判断这封邮件能不能移到目标箱子。
+// 规则：邮件「性质」不变 —— 收到的永远进不了发件箱，发出的永远进不了收件箱/垃圾箱。
+func CheckMoveTarget(emailType int8, curStatus int8, toBox int) error {
+	switch toBox {
+	case models.INBOX:
+		if emailType != consts.EmailTypeReceive {
+			return errors.New("发出的邮件不能移到收件箱")
+		}
+	case models.Sent:
+		if emailType != consts.EmailTypeSend {
+			return errors.New("收到的邮件不能移到发件箱")
+		}
+	case models.Junk:
+		if emailType != consts.EmailTypeReceive {
+			return errors.New("发出的邮件不能移到垃圾箱")
+		}
+	case models.Drafts:
+		// 发出的邮件可以放回草稿箱；收到的邮件只有本来就是草稿才允许
+		if emailType != consts.EmailTypeSend && curStatus != consts.EmailStatusDrafts {
+			return errors.New("收到的邮件不能移到草稿箱")
+		}
+	}
+	return nil
+}
+
+// RestoreFromDeleted 把「已删除」里的邮件原路退回它进来之前所在的箱子。
+func RestoreFromDeleted(ctx *context.Context, mailIds []int) error {
+	if len(mailIds) == 0 {
+		return errors.New("没有要还原的邮件")
+	}
+
+	// prev_status = -1 表示这封邮件进回收站时还没记录过来源（老数据），
+	// 这时按收/发的性质退回对应的箱子。
+	var list []models.UserEmail
+	if err := db.Instance.Where("user_id=? and email_id in ("+array.Join(mailIds, ",")+")", ctx.UserID).Find(&list); err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		groupID := item.PrevGroupId
+		status := item.PrevStatus
+		if status < 0 {
+			switch groupID {
+			case models.Sent:
+				status = consts.EmailStatusSent
+			case models.Drafts:
+				status = consts.EmailStatusDrafts
+			case models.Junk:
+				status = consts.EmailStatusJunk
+			default:
+				status = consts.EmailTypeReceive
+			}
+		}
+		if status < 0 {
+			status = consts.EmailTypeReceive
+		}
+
+		if _, err := db.Instance.Exec(
+			"update user_email set group_id=?, status=?, prev_group_id=0, prev_status=-1 where user_id=? and email_id=?",
+			groupID, status, ctx.UserID, item.EmailID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Move2DefaultBox 把邮件移到内置箱子。
+//
+// 关键：group_id 也一起写成目标箱子的编号，而不是重置成 0。
+// 移进「已删除」时先记下来源箱子和状态，方便之后原路退回。
 func Move2DefaultBox(ctx *context.Context, mailIds []int, groupName string) error {
 	move := func(status int8, boxId int) error {
 		_, err := db.Instance.Table(&models.UserEmail{}).Where(builder.Eq{
@@ -342,6 +413,13 @@ func Move2DefaultBox(ctx *context.Context, mailIds []int, groupName string) erro
 
 	switch groupName {
 	case "Deleted Messages":
+		// 先记录当前所在箱子与状态（已在回收站的不覆盖）
+		if _, err := db.Instance.Exec(
+			"update user_email set prev_group_id=group_id, prev_status=status where user_id=? and email_id in ("+
+				array.Join(mailIds, ",")+") and group_id <> ?", ctx.UserID, models.Deleted,
+		); err != nil {
+			return err
+		}
 		return del_email.DelEmail(ctx, mailIds, false)
 	case "INBOX":
 		return move(consts.EmailTypeReceive, models.INBOX)

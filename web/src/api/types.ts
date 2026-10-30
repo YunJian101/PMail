@@ -33,6 +33,8 @@ export interface MailUser {
 
 export interface MailListItem {
   id: number
+  /** 0=收到的邮件 1=发出的邮件，决定能移动到哪些箱子 */
+  type?: number
   title: string
   desc: string
   datetime: string

@@ -28,6 +28,11 @@ export function fetchUnreadCounts() {
   return post<Record<string, number>>('/api/email/unread')
 }
 
+/** 从「已删除」原路退回 */
+export function restoreMail(ids: number[]) {
+  return post<string>('/api/email/restore', { ids })
+}
+
 export function getMailDetail(id: number) {
   return post<MailDetail>('/api/email/detail', { id })
 }

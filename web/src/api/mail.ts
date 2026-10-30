@@ -23,6 +23,11 @@ export function listMail(params: ListMailParams) {
   })
 }
 
+/** 各文件夹未读数：key 是 slug（inbox / sent / drafts / junk / trash / group-<id>） */
+export function fetchUnreadCounts() {
+  return post<Record<string, number>>('/api/email/unread')
+}
+
 export function getMailDetail(id: number) {
   return post<MailDetail>('/api/email/detail', { id })
 }

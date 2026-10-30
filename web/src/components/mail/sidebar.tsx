@@ -14,12 +14,13 @@ import {
   PenLine,
   Send,
   Settings,
-  Shield,
   Sun,
   Trash2,
   Users,
 } from 'lucide-react'
 import { fetchFolders } from '@/api/folders'
+import { fetchUnreadCounts } from '@/api/mail'
+import { toast } from '@/lib/toast'
 import type { FolderItem } from '@/api/types'
 import { tagToSlug } from '@/lib/folders'
 import { cn } from '@/lib/utils'
@@ -48,7 +49,7 @@ const FOLDER_ICONS: Record<string, React.ReactNode> = {
   trash: <Trash2 className="h-[17px] w-[17px]" strokeWidth={1.7} />,
 }
 
-function FolderLink({ item, depth = 0 }: { item: FolderItem; depth?: number }) {
+function FolderLink({ item, depth = 0, unread = 0 }: { item: FolderItem; depth?: number; unread?: number }) {
   const slug = tagToSlug(item.tag)
   const icon = FOLDER_ICONS[slug] ?? <Folder className="h-[17px] w-[17px]" strokeWidth={1.7} />
   const children = item.children ?? []
@@ -71,11 +72,21 @@ function FolderLink({ item, depth = 0 }: { item: FolderItem; depth?: number }) {
           <>
             <span className={cn('flex-none', isActive ? 'text-primary' : 'text-fg-subtle')}>{icon}</span>
             <span className="truncate">{item.label}</span>
+            {unread > 0 ? (
+              <span
+                className={cn(
+                  'ml-auto grid h-[18px] min-w-[18px] flex-none place-items-center rounded-full px-1 text-[10.5px] font-[700] leading-none tabular-nums',
+                  isActive ? 'bg-primary text-primary-fg' : 'bg-primary-soft text-primary',
+                )}
+              >
+                {unread > 99 ? '99+' : unread}
+              </span>
+            ) : null}
           </>
         )}
       </NavLink>
       {children.map((child) => (
-        <FolderLink key={child.tag} item={child} depth={depth + 1} />
+        <FolderLink key={child.tag} item={child} depth={depth + 1} unread={unread} />
       ))}
     </>
   )
@@ -94,6 +105,29 @@ export function MailSidebar() {
     queryFn: fetchFolders,
     staleTime: 60_000,
   })
+
+  // 未读数：15 秒轮询（页面切到后台时暂停），侧边栏徽标 + 新邮件提示都靠它
+  const unreadQuery = useQuery({
+    queryKey: ['unread'],
+    queryFn: fetchUnreadCounts,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    staleTime: 5_000,
+  })
+
+  const unread = unreadQuery.data ?? {}
+  const inboxUnread = unread.inbox ?? 0
+  const prevInboxUnread = React.useRef<number | null>(null)
+
+  // 未读数变多 -> 提示收到新邮件；顺手把未读数写进标签页标题
+  React.useEffect(() => {
+    const prev = prevInboxUnread.current
+    if (prev !== null && inboxUnread > prev) {
+      toast.info(t('mail.newMail', { count: inboxUnread - prev }))
+    }
+    prevInboxUnread.current = inboxUnread
+    document.title = inboxUnread > 0 ? `(${inboxUnread}) PMail` : 'PMail'
+  }, [inboxUnread, t])
 
   const items = folders.data ?? []
 
@@ -132,7 +166,9 @@ export function MailSidebar() {
             ))}
           </div>
         ) : (
-          items.map((item) => <FolderLink key={item.tag} item={item} />)
+          items.map((item) => (
+            <FolderLink key={item.tag} item={item} unread={unread[tagToSlug(item.tag)] ?? 0} />
+          ))
         )}
       </nav>
 
@@ -170,13 +206,8 @@ export function MailSidebar() {
                 <div className="text-[11.5px] text-fg-subtle">{user?.account}</div>
               </div>
               <DropdownSeparator />
-              {/* 没有权限的入口直接不显示：普通用户看不到管理后台相关项 */}
-              {user?.is_admin ? (
-                <DropdownItem onSelect={() => navigate('/admin/users')}>
-                  <Shield className="h-3.5 w-3.5" />
-                  {t('nav.admin')}
-                </DropdownItem>
-              ) : null}
+              {/* 管理入口只在侧边栏底部保留一份，这里不再重复 */}
+
               <DropdownItem onSelect={() => navigate('/mail/settings')}>
                 <Settings className="h-3.5 w-3.5" />
                 {t('account.title')}

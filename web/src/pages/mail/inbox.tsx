@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import {
   deleteMail,
+  fetchUnreadCounts,
   getMailDetail,
   listMail,
   markMailRead,
@@ -102,6 +103,9 @@ function MailRow({
       {active ? (
         <span className="pointer-events-none absolute inset-0 rounded-md ring-[1.5px] ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]" />
       ) : null}
+      {unread ? (
+        <span className="pointer-events-none absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-primary" />
+      ) : null}
 
       <div className="relative mt-px">
         <Avatar
@@ -151,7 +155,7 @@ function MailRow({
           {formatListTime(item.datetime)}
         </span>
         <div className="flex items-center gap-1.5 text-fg-subtle">
-          {unread ? <i className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+          {unread ? <i className="h-[6px] w-[6px] rounded-full bg-primary" /> : null}
           {item.desc ? <Paperclip className="h-3 w-3 opacity-0" /> : null}
         </div>
       </div>
@@ -273,6 +277,25 @@ export function InboxPage() {
 
   const moveTargets = folderItems.filter((item) => tagToSlug(item.tag) !== folder)
 
+  // 阅读区「移动到」下拉：把 tag 换算成后端要的 group_id
+  const readerMoveTargets = React.useMemo(
+    () =>
+      moveTargets
+        .map((item) => ({ label: item.label, groupId: slugToMoveTarget(tagToSlug(item.tag)) }))
+        .filter((item): item is { label: string; groupId: number } => item.groupId !== null),
+    [moveTargets],
+  )
+
+  // 未读数（和侧边栏共用同一个 queryKey，15 秒刷新一次）
+  const unreadQuery = useQuery({
+    queryKey: ['unread'],
+    queryFn: fetchUnreadCounts,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    staleTime: 5_000,
+  })
+  const folderUnread = unreadQuery.data?.[folder] ?? 0
+
   return (
     <div className="grid h-full min-w-0 grid-cols-1 gap-2.5 overflow-hidden md:grid-cols-[340px_1fr] xl:grid-cols-[396px_1fr]">
       {/* ---------------- 列表 ---------------- */}
@@ -290,6 +313,9 @@ export function InboxPage() {
             <span className="text-[12px] tabular-nums text-fg-subtle">
               {listQuery.data ? t('mail.list.count', { count: mails.length }) : ''}
             </span>
+            {folderUnread > 0 ? (
+              <Badge tone="primary">{t('mail.unreadCount', { count: folderUnread })}</Badge>
+            ) : null}
             <div className="ml-auto flex items-center gap-0.5">
               <Tooltip label={t('common.refresh')}>
                 <Button
@@ -471,12 +497,10 @@ export function InboxPage() {
           if (!selectedId) return
           deleteMutation.mutate([selectedId])
         }}
-        onMove={() => {
+        moveTargets={readerMoveTargets}
+        onMove={(groupId) => {
           if (!selectedId) return
-          const first = moveTargets[0]
-          const groupId = first ? slugToMoveTarget(tagToSlug(first.tag)) : null
-          if (groupId !== null) moveMutation.mutate({ ids: [selectedId], groupId })
-          else toast.info(t('admin.groups.empty'))
+          moveMutation.mutate({ ids: [selectedId], groupId })
         }}
         onToggleRead={() => selectedId && readMutation.mutate([selectedId])}
         onBack={() => setSearchParams({}, { replace: true })}

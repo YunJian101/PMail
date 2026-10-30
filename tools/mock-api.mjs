@@ -268,6 +268,7 @@ const server = http.createServer(async (req, res) => {
   if (path === '/api/rule/add' || path === '/api/rule/update') return send(res, 'succ')
   if (path === '/api/rule/del') return send(res, 'succ')
   if (path === '/api/plugin/list') return send(res, ['wechat_push', 'spam_block'])
+  if (path === '/api/email/unread') return send(res, { inbox: 3, sent: 0, drafts: 1, junk: 0, trash: 0 })
   if (path === '/api/version')
     return send(res, { version: '2.0.4beta', buildTime: '2026-10-30T13:50:00Z', gitHash: 'local', goVersion: 'go1.27.3' })
   if (path === '/api/settings/modify_password') return send(res, 'Succ')

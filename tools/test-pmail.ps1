@@ -315,6 +315,10 @@ try {
     $newLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'admin'; password = 'NewPassw0rd!e2e' }
     Check 'new password works' ($newLogin.Json.errorNo -eq 0) $newLogin.Text
 
+    # ---------- 10c2. unread counts (drives the sidebar badge / new mail toast) ----------
+    $unread = Invoke-Api "$httpUrl/api/email/unread"
+    Check 'unread counts endpoint works' ($unread.Json.errorNo -eq 0 -and $null -ne $unread.Json.data.inbox) $unread.Text
+
     # ---------- 10d. disabled account gets a clear login error ----------
     $createBlocked = Invoke-Api "$httpUrl/api/user/create" @{ account = 'blocked'; username = 'Blocked'; password = 'BlockedPass1!' }
     Check 'admin can create another user' ($createBlocked.Json.errorNo -eq 0) $createBlocked.Text

@@ -31,7 +31,6 @@ import {
   Dropdown,
   DropdownContent,
   DropdownItem,
-  DropdownSeparator,
   DropdownTrigger,
 } from '@/components/ui/dropdown'
 
@@ -79,7 +78,9 @@ export interface ReaderProps {
   onReplyAll: () => void
   onForward: () => void
   onDelete: () => void
-  onMove: () => void
+  /** 可移动到的文件夹（排除当前所在），点哪个移哪个 */
+  moveTargets: { label: string; groupId: number }[]
+  onMove: (groupId: number) => void
   onToggleRead?: () => void
   /** 窄屏下从阅读区返回列表 */
   onBack?: () => void
@@ -93,6 +94,7 @@ export function MailReader({
   onReplyAll,
   onForward,
   onDelete,
+  moveTargets,
   onMove,
   onToggleRead,
   onBack,
@@ -181,27 +183,27 @@ export function MailReader({
             <Trash2 className="h-[18px] w-[18px]" />
           </Button>
         </Tooltip>
-        <Tooltip label={t('mail.action.move')}>
-          <Button variant="ghost" size="icon" onClick={onMove}>
-            <FolderInput className="h-[18px] w-[18px]" />
-          </Button>
-        </Tooltip>
+        <Dropdown>
+          <DropdownTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={t('mail.action.moveTo')} disabled={moveTargets.length === 0}>
+              <FolderInput className="h-[18px] w-[18px]" />
+            </Button>
+          </DropdownTrigger>
+          <DropdownContent align="start">
+            {moveTargets.map((target) => (
+              <DropdownItem key={target.groupId} onSelect={() => onMove(target.groupId)}>
+                <FolderInput className="h-3.5 w-3.5" />
+                {target.label}
+              </DropdownItem>
+            ))}
+          </DropdownContent>
+        </Dropdown>
         <Tooltip label={t('mail.action.markUnread')}>
           <Button variant="ghost" size="icon" onClick={onToggleRead}>
             <Mail className="h-[18px] w-[18px]" />
           </Button>
         </Tooltip>
         <div className="mx-1.5 h-[18px] w-px bg-border-base" />
-        <Tooltip label={t('mail.action.reply')}>
-          <Button variant="ghost" size="icon" onClick={onReply}>
-            <Reply className="h-[18px] w-[18px]" />
-          </Button>
-        </Tooltip>
-        <Tooltip label={t('mail.action.forward')}>
-          <Button variant="ghost" size="icon" onClick={onForward}>
-            <Forward className="h-[18px] w-[18px]" />
-          </Button>
-        </Tooltip>
 
         <div className="ml-auto flex items-center gap-1.5">
           <Button variant="ghost" onClick={onReply}>
@@ -223,11 +225,7 @@ export function MailReader({
                 <ReplyAll className="h-3.5 w-3.5" />
                 {t('mail.action.replyAll')}
               </DropdownItem>
-              <DropdownSeparator />
-              <DropdownItem danger onSelect={onDelete}>
-                <Trash2 className="h-3.5 w-3.5" />
-                {t('mail.action.delete')}
-              </DropdownItem>
+
             </DropdownContent>
           </Dropdown>
         </div>

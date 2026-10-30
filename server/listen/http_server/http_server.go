@@ -39,6 +39,7 @@ func router(mux *http.ServeMux) {
 	mux.HandleFunc("/api/group/add", contextIterceptor(controllers.AddGroup))
 	mux.HandleFunc("/api/group/del", contextIterceptor(controllers.DelGroup))
 	mux.HandleFunc("/api/email/list", contextIterceptor(email.EmailList))
+	mux.HandleFunc("/api/email/unread", contextIterceptor(email.UnreadCounts))
 	mux.HandleFunc("/api/email/del", contextIterceptor(email.EmailDelete))
 	mux.HandleFunc("/api/email/read", contextIterceptor(email.MarkRead))
 	mux.HandleFunc("/api/email/detail", contextIterceptor(email.EmailDetail))

@@ -14,8 +14,6 @@ interface SystemInfo {
   webDomain: string
   domains: string[]
   webPort: number
-  httpsPort: number
-  https: number
   dbType: string
   dataDir: string
   sslSource: string
@@ -42,10 +40,8 @@ export function SystemInfoCard() {
         },
         { label: t('admin.settings.mailDomain'), value: info.domain || '—' },
         { label: t('admin.settings.webDomainLabel'), value: info.webDomain || '—' },
-        {
-          label: t('admin.settings.webPort'),
-          value: info.https === 2 ? `${info.webPort} / ${info.httpsPort} (HTTPS)` : `${info.webPort}`,
-        },
+        // 只显示实际在用的网页端口；HTTPS 没启用就不出现，避免把没开的功能摆出来
+        { label: t('admin.settings.webPort'), value: `${info.webPort}` },
         { label: t('admin.settings.dbType'), value: info.dbType || '—' },
         { label: t('admin.settings.dataDir'), value: info.dataDir || '—' },
       ]

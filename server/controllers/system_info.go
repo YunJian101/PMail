@@ -22,8 +22,6 @@ func SystemInfo(ctx *context.Context, w http.ResponseWriter, req *http.Request) 
 		"webDomain": config.Instance.WebDomain,
 		"domains":   config.Instance.Domains,
 		"webPort":   config.Instance.HttpPort,
-		"httpsPort": config.Instance.HttpsPort,
-		"https":     config.Instance.HttpsEnabled,
 		"dbType":    config.Instance.DbType,
 		"dataDir":   config.ROOT_PATH,
 		"sslSource": config.Instance.SSLSource,

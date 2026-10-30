@@ -67,7 +67,7 @@ const zh = {
   'common.unit.count': '封',
   'nav.settings': '设置',
   'nav.mailbox': '返回邮箱',
-  'nav.admin': '管理',
+  'nav.admin': '管理服务器',
 
   // ---------- 品牌 / 登录 ----------
   'app.name': 'PMail',

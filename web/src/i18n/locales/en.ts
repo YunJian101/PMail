@@ -68,7 +68,7 @@ const en: Dict = {
   'common.unit.count': '',
   'nav.settings': 'Settings',
   'nav.mailbox': 'Back to mailbox',
-  'nav.admin': 'Admin',
+  'nav.admin': 'Server admin',
 
   'app.name': 'PMail',
   'app.tagline': 'Your domain, your mailbox',

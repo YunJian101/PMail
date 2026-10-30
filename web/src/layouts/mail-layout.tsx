@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Folder, LogOut, PenLine, Settings } from 'lucide-react'
+import { ChevronDown, Folder, LogOut, PenLine, Settings, Shield } from 'lucide-react'
 import { MailSidebar } from '@/components/mail/sidebar'
 import { Composer } from '@/components/mail/composer'
 import { Button } from '@/components/ui/button'
@@ -90,6 +90,16 @@ export default function MailLayout() {
                 <div className="truncate text-[11.5px] text-fg-subtle">{user?.account}</div>
               </div>
               <DropdownSeparator />
+              {/* 管理员才有「管理服务器」；窄屏侧边栏是隐藏的，入口折叠到这里 */}
+              {user?.is_admin ? (
+                <>
+                  <DropdownItem onSelect={() => navigate('/admin/users')}>
+                    <Shield className="h-3.5 w-3.5" />
+                    {t('nav.admin')}
+                  </DropdownItem>
+                  <DropdownSeparator />
+                </>
+              ) : null}
               <DropdownItem onSelect={() => navigate('/mail/settings')}>
                 <Settings className="h-3.5 w-3.5" />
                 {t('account.title')}

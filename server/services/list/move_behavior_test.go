@@ -2,6 +2,7 @@ package list
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,105 +12,151 @@ import (
 	"github.com/Jinnrry/pmail/db"
 	"github.com/Jinnrry/pmail/dto"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/services/del_email"
 	"github.com/Jinnrry/pmail/services/group"
 	"github.com/Jinnrry/pmail/utils/context"
 )
 
-// 用真实 sqlite + 真实的移动函数，验证「移动到别的箱子后，原箱子不再显示」。
-// 之前的问题：内置箱移动只改 status 并把 group_id 归零，
-// 原箱子仍然命中，邮件就同时出现在两个箱子里。
-func TestMoveBetweenBoxesKeepsSingleLocation(t *testing.T) {
-	cases := []struct {
-		name      string
-		status    int8
-		emailType int8
-		fromTag   dto.SearchTag
-		toBox     string
-		toTag     dto.SearchTag
-	}{
-		{
-			name:      "发件箱 -> 广告箱",
-			status:    1,
-			emailType: consts.EmailTypeSend,
-			fromTag:   dto.SearchTag{Type: consts.EmailTypeSend, Status: -1},
-			toBox:     "Junk",
-			toTag:     dto.SearchTag{Type: -1, Status: consts.EmailStatusJunk},
-		},
-		{
-			name:      "草稿箱 -> 广告箱",
-			status:    4,
-			emailType: consts.EmailTypeReceive,
-			fromTag:   dto.SearchTag{Type: 0, Status: consts.EmailStatusDrafts},
-			toBox:     "Junk",
-			toTag:     dto.SearchTag{Type: -1, Status: consts.EmailStatusJunk},
-		},
-		{
-			name:      "收件箱 -> 广告箱",
-			status:    0,
-			emailType: consts.EmailTypeReceive,
-			fromTag:   dto.SearchTag{Type: consts.EmailTypeReceive, Status: -1, GroupId: 0},
-			toBox:     "Junk",
-			toTag:     dto.SearchTag{Type: -1, Status: consts.EmailStatusJunk},
-		},
-		{
-			name:      "广告箱 -> 已删除",
-			status:    5,
-			emailType: consts.EmailTypeReceive,
-			fromTag:   dto.SearchTag{Type: -1, Status: consts.EmailStatusJunk},
-			toBox:     "Deleted Messages",
-			toTag:     dto.SearchTag{Type: -1, Status: consts.EmailStatusDel},
-		},
-		{
-			name:      "已删除 -> 收件箱",
-			status:    3,
-			emailType: consts.EmailTypeReceive,
-			fromTag:   dto.SearchTag{Type: -1, Status: consts.EmailStatusDel},
-			toBox:     "INBOX",
-			toTag:     dto.SearchTag{Type: consts.EmailTypeReceive, Status: -1, GroupId: 0},
-		},
-		{
-			name:      "收件箱 -> 发件箱",
-			status:    0,
-			emailType: consts.EmailTypeReceive,
-			fromTag:   dto.SearchTag{Type: consts.EmailTypeReceive, Status: -1, GroupId: 0},
-			toBox:     "Sent Messages",
-			toTag:     dto.SearchTag{Type: consts.EmailTypeSend, Status: -1},
-		},
+// 五个内置箱子的定义：移动函数用的名字 + 列表用的 tag + 老数据的 status/type
+type boxDef struct {
+	name      string
+	tag       dto.SearchTag
+	status    int8
+	emailType int8
+}
+
+var allBoxes = []boxDef{
+	{"INBOX", dto.SearchTag{Type: consts.EmailTypeReceive, Status: -1, GroupId: 0}, 0, 0},
+	{"Sent Messages", dto.SearchTag{Type: consts.EmailTypeSend, Status: -1, GroupId: 0}, 1, 1},
+	{"Drafts", dto.SearchTag{Type: 0, Status: consts.EmailStatusDrafts, GroupId: 0}, 4, 0},
+	{"Junk", dto.SearchTag{Type: -1, Status: consts.EmailStatusJunk, GroupId: 0}, 5, 0},
+	{"Deleted Messages", dto.SearchTag{Type: -1, Status: consts.EmailStatusDel, GroupId: 0}, 3, 0},
+}
+
+// 5×5 全矩阵：任何箱子移到任何箱子，都必须「目标有、其余四个箱子都没有」。
+func TestMoveMatrixAllBoxes(t *testing.T) {
+	for _, src := range allBoxes {
+		for _, dst := range allBoxes {
+			src, dst := src, dst
+			t.Run(fmt.Sprintf("%s_to_%s", src.name, dst.name), func(t *testing.T) {
+				ctx := newTestCtx(t)
+				emailId := seedMail(t, ctx, src)
+
+				if got := countList(ctx, src.tag); got != 1 {
+					t.Fatalf("移动前 %s 应该有 1 封，实际 %d", src.name, got)
+				}
+
+				if err := group.Move2DefaultBox(ctx, []int{emailId}, dst.name); err != nil {
+					t.Fatalf("move %s -> %s: %v", src.name, dst.name, err)
+				}
+
+				for _, b := range allBoxes {
+					got := countList(ctx, b.tag)
+					want := int64(0)
+					if b.name == dst.name {
+						want = 1
+					}
+					if got != want {
+						t.Fatalf("移动到 %s 后，%s 应该有 %d 封，实际 %d", dst.name, b.name, want, got)
+					}
+				}
+			})
+		}
 	}
+}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+// 从每个箱子删除：软删除只进「已删除」，彻底删除则五个箱子都没有
+func TestDeleteFromEveryBox(t *testing.T) {
+	for _, src := range allBoxes {
+		src := src
+		t.Run("soft_"+src.name, func(t *testing.T) {
 			ctx := newTestCtx(t)
+			emailId := seedMail(t, ctx, src)
 
-			email := &models.Email{Type: tc.emailType, Subject: tc.name}
-			if _, err := db.Instance.Insert(email); err != nil {
-				t.Fatalf("insert email: %v", err)
-			}
-			if _, err := db.Instance.Insert(&models.UserEmail{
-				UserID: ctx.UserID, EmailID: email.Id, GroupId: 0, Status: tc.status, IsRead: 1,
-			}); err != nil {
-				t.Fatalf("insert user_email: %v", err)
+			if err := del_email.DelEmail(ctx, []int{emailId}, false); err != nil {
+				t.Fatalf("soft delete: %v", err)
 			}
 
-			if got := countList(ctx, tc.fromTag); got != 1 {
-				t.Fatalf("移动前「%s」应该有 1 封，实际 %d", tc.name, got)
+			for _, b := range allBoxes {
+				got := countList(ctx, b.tag)
+				want := int64(0)
+				if b.name == "Deleted Messages" {
+					want = 1
+				}
+				if got != want {
+					t.Fatalf("%s 删除后，%s 应该有 %d 封，实际 %d", src.name, b.name, want, got)
+				}
+			}
+		})
+
+		t.Run("forced_"+src.name, func(t *testing.T) {
+			ctx := newTestCtx(t)
+			emailId := seedMail(t, ctx, src)
+
+			if err := del_email.DelEmail(ctx, []int{emailId}, true); err != nil {
+				t.Fatalf("forced delete: %v", err)
 			}
 
-			if err := group.Move2DefaultBox(ctx, []int{email.Id}, tc.toBox); err != nil {
-				t.Fatalf("move: %v", err)
-			}
-
-			if got := countList(ctx, tc.toTag); got != 1 {
-				t.Fatalf("移动后目标箱子应该有 1 封，实际 %d", got)
-			}
-			if got := countList(ctx, tc.fromTag); got != 0 {
-				t.Fatalf("移动后原箱子不该再有这封邮件，实际 %d", got)
+			for _, b := range allBoxes {
+				if got := countList(ctx, b.tag); got != 0 {
+					t.Fatalf("%s 彻底删除后，%s 还有 %d 封", src.name, b.name, got)
+				}
 			}
 		})
 	}
 }
 
-// 移到自定义分组后，内置箱子也不该再显示
+// 标已读/标未读都不应该改变邮件所在箱子
+func TestReadStateDoesNotMoveMail(t *testing.T) {
+	for _, src := range allBoxes {
+		src := src
+		t.Run(src.name, func(t *testing.T) {
+			ctx := newTestCtx(t)
+			emailId := seedMail(t, ctx, src)
+
+			// 等价于「打开邮件被标已读」：只改 is_read，不动 group_id/status
+			if _, err := db.Instance.Exec("update user_email set is_read=0 where email_id=? and user_id=?", emailId, ctx.UserID); err != nil {
+				t.Fatalf("mark unread: %v", err)
+			}
+			if got := countList(ctx, src.tag); got != 1 {
+				t.Fatalf("标未读后 %s 应该还是 1 封，实际 %d", src.name, got)
+			}
+
+			if _, err := db.Instance.Exec("update user_email set is_read=1 where email_id=? and user_id=?", emailId, ctx.UserID); err != nil {
+				t.Fatalf("mark read: %v", err)
+			}
+			if got := countList(ctx, src.tag); got != 1 {
+				t.Fatalf("标已读后 %s 应该还是 1 封，实际 %d", src.name, got)
+			}
+
+			for _, b := range allBoxes {
+				if b.name == src.name {
+					continue
+				}
+				if got := countList(ctx, b.tag); got != 0 {
+					t.Fatalf("改已读状态后 %s 不该出现，实际 %d", b.name, got)
+				}
+			}
+		})
+	}
+}
+
+func seedMail(t *testing.T, ctx *context.Context, b boxDef) int {
+	t.Helper()
+
+	email := &models.Email{Type: b.emailType, Subject: "matrix"}
+	if _, err := db.Instance.Insert(email); err != nil {
+		t.Fatalf("insert email: %v", err)
+	}
+	if _, err := db.Instance.Insert(&models.UserEmail{
+		UserID: ctx.UserID, EmailID: email.Id, GroupId: 0, Status: b.status, IsRead: 1,
+	}); err != nil {
+		t.Fatalf("insert user_email: %v", err)
+	}
+	return email.Id
+}
+
+// 移到自定义分组后，内置箱子也不该再显示；自定义分组里能看到
 func TestMoveToCustomGroupLeavesBuiltInBox(t *testing.T) {
 	ctx := newTestCtx(t)
 
@@ -118,25 +165,16 @@ func TestMoveToCustomGroupLeavesBuiltInBox(t *testing.T) {
 		t.Fatalf("insert group: %v", err)
 	}
 
-	email := &models.Email{Type: consts.EmailTypeReceive, Subject: "custom move"}
-	if _, err := db.Instance.Insert(email); err != nil {
-		t.Fatalf("insert email: %v", err)
-	}
-	if _, err := db.Instance.Insert(&models.UserEmail{UserID: ctx.UserID, EmailID: email.Id, GroupId: 0, Status: 0, IsRead: 1}); err != nil {
-		t.Fatalf("insert user_email: %v", err)
-	}
+	emailId := seedMail(t, ctx, allBoxes[0])
 
-	inboxTag := dto.SearchTag{Type: consts.EmailTypeReceive, Status: -1, GroupId: 0}
-	if got := countList(ctx, inboxTag); got != 1 {
-		t.Fatalf("收件箱初始应该有 1 封，实际 %d", got)
-	}
-
-	if !group.MoveMailToGroup(ctx, []int{email.Id}, custom.ID) {
+	if !group.MoveMailToGroup(ctx, []int{emailId}, custom.ID) {
 		t.Fatal("move to custom group failed")
 	}
 
-	if got := countList(ctx, inboxTag); got != 0 {
-		t.Fatalf("移到自定义分组后收件箱不该显示，实际 %d", got)
+	for _, b := range allBoxes {
+		if got := countList(ctx, b.tag); got != 0 {
+			t.Fatalf("移到自定义分组后 %s 不该显示，实际 %d", b.name, got)
+		}
 	}
 	if got := countList(ctx, dto.SearchTag{Type: 0, Status: -1, GroupId: custom.ID}); got != 1 {
 		t.Fatalf("自定义分组应该有 1 封，实际 %d", got)

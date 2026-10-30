@@ -278,46 +278,47 @@ func getNextUID(ctx *context.Context, groupName string) int {
 	return lastId + 1
 }
 
+// getGroupNum 计算某个内置箱子的邮件数/未读数。
+// 口径与网页端列表一致：group_id 命中本箱就算，group_id=0 的老数据才看 status/type。
 func getGroupNum(ctx *context.Context, groupName string, mustUnread bool) int {
 	var count int
+	unread := ""
+	if mustUnread {
+		unread = " and ue.is_read=0"
+	}
+
 	switch groupName {
 	case "INBOX":
-		// 收件箱 = 收到且还在默认位置(0)或 INBOX；移到自定义分组后不该再算进来
-		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=0 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.INBOX).Get(&count)
-		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=0 and (group_id=? or group_id=0)", ctx.UserID, models.INBOX).Get(&count)
-		}
+		db.Instance.SQL(
+			"select count(1) from user_email ue left join email e on e.id=ue.email_id "+
+				"where ue.user_id=? and (ue.group_id=? or (ue.group_id=0 and ue.status=0 and e.type=0))"+unread,
+			ctx.UserID, models.INBOX,
+		).Get(&count)
 	case "Sent Messages":
 		if mustUnread {
 			count = 0
 		} else {
-			// 与网页端口径一致：group_id=0 的历史发件 + 显式放进发件箱的
 			db.Instance.SQL(
 				"select count(1) from user_email ue left join email e on e.id=ue.email_id "+
-					"where ue.user_id=? and ue.status=1 and ((ue.group_id=0 and e.type=1) or ue.group_id=?)",
+					"where ue.user_id=? and (ue.group_id=? or (ue.group_id=0 and ue.status=1 and e.type=1))",
 				ctx.UserID, models.Sent,
 			).Get(&count)
 		}
 	case "Drafts":
-		// 与网页端一致：被移走的邮件不再算在草稿箱
-		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=4 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.Drafts).Get(&count)
-		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=4 and (group_id=? or group_id=0)", ctx.UserID, models.Drafts).Get(&count)
-		}
+		db.Instance.SQL(
+			"select count(1) from user_email ue where ue.user_id=? and (ue.group_id=? or (ue.group_id=0 and ue.status=4))"+unread,
+			ctx.UserID, models.Drafts,
+		).Get(&count)
 	case "Deleted Messages":
-		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=3 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.Deleted).Get(&count)
-		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=3 and (group_id=? or group_id=0)", ctx.UserID, models.Deleted).Get(&count)
-		}
+		db.Instance.SQL(
+			"select count(1) from user_email ue where ue.user_id=? and (ue.group_id=? or (ue.group_id=0 and ue.status=3))"+unread,
+			ctx.UserID, models.Deleted,
+		).Get(&count)
 	case "Junk":
-		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=5 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.Junk).Get(&count)
-		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=5 and (group_id=? or group_id=0)", ctx.UserID, models.Junk).Get(&count)
-		}
+		db.Instance.SQL(
+			"select count(1) from user_email ue where ue.user_id=? and (ue.group_id=? or (ue.group_id=0 and ue.status=5))"+unread,
+			ctx.UserID, models.Junk,
+		).Get(&count)
 	}
 	return count
 }

@@ -31,6 +31,8 @@ func StartWithTls() {
 	instanceTls.ConnectAliveTime = 5 * time.Minute
 
 	log.Infof("POP3 With TLS Server Start On Port :%d", pop3sPort)
+	// 先登记为监听中：Start 成功会一直阻塞
+	mailstatus.Report("POP3S", pop3sPort, nil)
 
 	if err := instanceTls.Start(); err != nil {
 		// 端口被占用时不能杀掉进程，否则网页也打不开、没地方改端口
@@ -38,7 +40,6 @@ func StartWithTls() {
 		mailstatus.Report("POP3S", pop3sPort, err)
 		return
 	}
-	mailstatus.Report("POP3S", pop3sPort, nil)
 }
 
 func Start() {
@@ -57,13 +58,13 @@ func Start() {
 	instance = gopop.NewPop3Server(pop3Port, "pop."+config.Instance.Domain, false, tlsConfig, action{})
 	instance.ConnectAliveTime = 5 * time.Minute
 	log.Infof("POP3 Server Start On Port :%d", pop3Port)
+	mailstatus.Report("POP3", pop3Port, nil)
 
 	if err := instance.Start(); err != nil {
 		log.Errorf("pop3: listen failed: %v", err)
 		mailstatus.Report("POP3", pop3Port, err)
 		return
 	}
-	mailstatus.Report("POP3", pop3Port, nil)
 }
 
 func Stop() {

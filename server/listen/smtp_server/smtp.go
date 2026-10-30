@@ -38,6 +38,8 @@ func StartWithTLSNew() {
 	instanceTlsNew.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cer}}
 
 	log.Println("Starting Smtp With STARTTLS Server Port:", instanceTlsNew.Addr)
+	// 先登记为「监听中」：ListenAndServe 成功时会一直阻塞，写在后面永远不会执行
+	mailstatus.Report("SMTP-SUBMISSION", config.Port("SUBMISSION", 587), nil)
 	// 587端口使用STARTTLS（先明文连接，再升级TLS），而非隐式TLS
 	if err := instanceTlsNew.ListenAndServe(); err != nil {
 		// 端口被占用时不能杀掉进程，否则网页也打不开、没地方改端口
@@ -45,7 +47,6 @@ func StartWithTLSNew() {
 		mailstatus.Report("SMTP-SUBMISSION", config.Port("SUBMISSION", 587), err)
 		return
 	}
-	mailstatus.Report("SMTP-SUBMISSION", config.Port("SUBMISSION", 587), nil)
 }
 
 func StartWithTLS() {
@@ -72,12 +73,12 @@ func StartWithTLS() {
 	instanceTls.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cer}}
 
 	log.Println("Starting Smtp With SSL Server Port:", instanceTls.Addr)
+	mailstatus.Report("SMTP-SSL", config.Port("SMTPS", 465), nil)
 	if err := instanceTls.ListenAndServeTLS(); err != nil {
 		log.Errorf("smtp ssl: listen failed: %v", err)
 		mailstatus.Report("SMTP-SSL", config.Port("SMTPS", 465), err)
 		return
 	}
-	mailstatus.Report("SMTP-SSL", config.Port("SMTPS", 465), nil)
 }
 
 func Start() {
@@ -104,12 +105,12 @@ func Start() {
 	instance.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cer}}
 
 	log.Println("Starting Smtp Server Port:", instance.Addr)
+	mailstatus.Report("SMTP", config.Port("SMTP", 25), nil)
 	if err := instance.ListenAndServe(); err != nil {
 		log.Errorf("smtp: listen failed: %v", err)
 		mailstatus.Report("SMTP", config.Port("SMTP", 25), err)
 		return
 	}
-	mailstatus.Report("SMTP", config.Port("SMTP", 25), nil)
 }
 
 func Stop() {

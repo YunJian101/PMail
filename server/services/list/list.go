@@ -48,56 +48,57 @@ func genSQL(ctx *context.Context, count bool, tagInfo dto.SearchTag, keyword str
 		sql += `e.*,ue.is_read from email e left join user_email ue on e.id=ue.email_id where ue.user_id = ? `
 	}
 
-	if tagInfo.Status != -1 {
-		// 内置箱子（已删除/草稿/广告）同时要求「没被移到别处」：
-		// group_id 必须是 0 或本箱。以前只看 status，移动邮件又只改 group_id，
-		// 结果从这些箱子移走的邮件还会留在原箱子里（两个箱子都显示）。
-		var boxId int
-		switch tagInfo.Status {
-		case consts.EmailStatusDel:
-			boxId = models.Deleted
-		case consts.EmailStatusDrafts:
-			boxId = models.Drafts
-		case consts.EmailStatusJunk:
-			boxId = models.Junk
-		}
-		if boxId != 0 {
-			sql += " and (ue.status =? or ue.group_id=?) and (ue.group_id=0 or ue.group_id=?) "
-			sqlParams = append(sqlParams, tagInfo.Status, boxId, boxId)
-		}
-
-	} else if tagInfo.Status == -1 {
-		if tagInfo.Type != 1 {
-			sql += " and ue.status = 0"
-		} else {
-			// 发件箱不展示已删除的邮件
-			sql += " and ue.status != 3"
-		}
+	// 箱子归属只认 user_email.group_id：
+	//   内置箱写各自编号（INBOX/Sent/Drafts/Deleted/Junk），自定义分组写分组 id。
+	// 老数据（group_id=0）没有这个标记，才退回用 status/type 判断。
+	// 这样不论从哪个箱子移到哪个箱子，都不会「两处都显示」或「直接消失」。
+	boxId := 0
+	switch tagInfo.Status {
+	case consts.EmailStatusDel:
+		boxId = models.Deleted
+	case consts.EmailStatusDrafts:
+		boxId = models.Drafts
+	case consts.EmailStatusJunk:
+		boxId = models.Junk
 	}
 
-	if tagInfo.Type == consts.EmailTypeReceive {
-		sql += " and type =? "
-		sqlParams = append(sqlParams, tagInfo.Type)
-	} else if tagInfo.Type == consts.EmailTypeSend {
-		// 发件箱 = 「发出且没被移走」。
-		// group_id=0 是历史数据（从没移动过），group_id=Sent 是显式放进发件箱的；
-		// 其它任何 group_id 都表示已经移到别的箱子了。
-		sql += " and ((ue.group_id = 0 and type = ?) or ue.group_id = ?)"
-		sqlParams = append(sqlParams, tagInfo.Type, models.Sent)
-	}
+	switch {
+	case tagInfo.GroupId > 0:
+		// 自定义分组
+		sql += " and ue.group_id = ? "
+		sqlParams = append(sqlParams, tagInfo.GroupId)
 
-	if tagInfo.GroupId != -1 {
-		if tagInfo.GroupId > 0 {
-			sql += " and ue.group_id=? "
-			sqlParams = append(sqlParams, tagInfo.GroupId)
-		} else if tagInfo.GroupId == 0 && tagInfo.Status == -1 && tagInfo.Type != consts.EmailTypeSend {
-			// 收件箱：只算默认位置和 INBOX 箱（发件箱有自己的条件，别在这里再套一层）
-			sql += " and (ue.group_id=? or ue.group_id=0)"
-			sqlParams = append(sqlParams, models.INBOX)
+	case tagInfo.GroupId == -1 && tagInfo.Type == -1 && tagInfo.Status == -1 && boxId == 0:
+		// 全部邮件：不筛选
+
+	case tagInfo.GroupId == -1:
+		// 兼容旧调用（没指定分组）：只看 type/status
+		if tagInfo.Type == consts.EmailTypeReceive {
+			sql += " and ue.status = 0 and type = ? "
+			sqlParams = append(sqlParams, consts.EmailTypeReceive)
+		} else if tagInfo.Type == consts.EmailTypeSend {
+			sql += " and ue.status != 3 and type = ? "
+			sqlParams = append(sqlParams, consts.EmailTypeSend)
 		}
-	} else {
-		sql += " and (ue.group_id=0 or ue.group_id =?) "
-		sqlParams = append(sqlParams, models.INBOX)
+		if boxId != 0 && tagInfo.Type == -1 {
+			sql += " and (ue.status = ? or ue.group_id = ?) "
+			sqlParams = append(sqlParams, tagInfo.Status, boxId)
+		}
+
+	default:
+		// 内置箱子（GroupId == 0）
+		switch {
+		case tagInfo.Type == consts.EmailTypeSend:
+			sql += " and (ue.group_id = ? or (ue.group_id = 0 and type = ? and ue.status != 3)) "
+			sqlParams = append(sqlParams, models.Sent, consts.EmailTypeSend)
+		case boxId != 0:
+			sql += " and (ue.group_id = ? or (ue.group_id = 0 and ue.status = ?)) "
+			sqlParams = append(sqlParams, boxId, tagInfo.Status)
+		default:
+			// 收件箱
+			sql += " and (ue.group_id = ? or (ue.group_id = 0 and ue.status = 0 and type = ?)) "
+			sqlParams = append(sqlParams, models.INBOX, consts.EmailTypeReceive)
+		}
 	}
 
 	if keyword != "" {

@@ -33,13 +33,14 @@ func StarTLS() {
 	instanceTLS = server
 
 	log.Infof("IMAP With TLS Server Start On Port :%d", imapPort)
+	// 先登记为监听中：ListenAndServeTLS 成功会一直阻塞
+	mailstatus.Report("IMAP", imapPort, nil)
 	if err := instanceTLS.ListenAndServeTLS(config.Addr("IMAP", 993)); err != nil {
 		// 端口被占用时不能杀掉进程，否则网页也打不开、没地方改端口
 		log.Errorf("imap: listen failed: %v", err)
 		mailstatus.Report("IMAP", imapPort, err)
 		return
 	}
-	mailstatus.Report("IMAP", imapPort, nil)
 }
 
 func newIMAPServer() (*imapserver.Server, error) {

@@ -325,6 +325,7 @@ try {
     # ---------- 10c3. mail port status (ports never kill the process) ----------
     $ports = Invoke-Api "$httpUrl/api/settings/mail_ports"
     Check 'mail port status endpoint works' ($ports.Json.errorNo -eq 0 -and $null -ne $ports.Json.data.webPort) $ports.Text
+    Check 'mail ports report their listening state' (@($ports.Json.data.ports).Count -ge 1 -and @($ports.Json.data.ports | Where-Object { $_.ok }).Count -ge 1) $ports.Text
 
     # 端口校验：非法端口要被拒绝（不触发重启，避免打断后续断言）
     $badPort = Invoke-Api "$httpUrl/api/settings/mail_ports/update" @{ __raw = '{"ports":{"PMAIL_PORT_SMTP":"0"}}' }

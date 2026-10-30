@@ -34,9 +34,11 @@ type num struct {
 
 func deleteOne(ctx *context.Context, session *xorm.Session, id int64, forcedDel bool) error {
 	if !forcedDel {
+		// 软删除：status 标记已删除，同时把 group_id 指向「已删除」箱，
+		// 否则从广告箱/草稿箱删掉的邮件会同时出现在两个箱子里
 		_, err := session.Table(&models.UserEmail{}).Where("email_id=? and user_id=?", id, ctx.UserID).Update(map[string]interface{}{
 			"status":   consts.EmailStatusDel,
-			"group_id": 0,
+			"group_id": models.Deleted,
 		})
 		return err
 	}

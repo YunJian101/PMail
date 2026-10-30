@@ -326,6 +326,13 @@ try {
     $ports = Invoke-Api "$httpUrl/api/settings/mail_ports"
     Check 'mail port status endpoint works' ($ports.Json.errorNo -eq 0 -and $null -ne $ports.Json.data.webPort) $ports.Text
 
+    # 端口校验：非法端口要被拒绝（不触发重启，避免打断后续断言）
+    $badPort = Invoke-Api "$httpUrl/api/settings/mail_ports/update" @{ __raw = '{"ports":{"PMAIL_PORT_SMTP":"0"}}' }
+    Check 'invalid mail port is rejected' ($badPort.Json.errorNo -ne 0) $badPort.Text
+
+    $sys = Invoke-Api "$httpUrl/api/settings/system_info"
+    Check 'system info endpoint works' ($sys.Json.errorNo -eq 0 -and $sys.Json.data.domain) $sys.Text
+
     # ---------- 10d. disabled account gets a clear login error ----------
     $createBlocked = Invoke-Api "$httpUrl/api/user/create" @{ account = 'blocked'; username = 'Blocked'; password = 'BlockedPass1!' }
     Check 'admin can create another user' ($createBlocked.Json.errorNo -eq 0) $createBlocked.Text

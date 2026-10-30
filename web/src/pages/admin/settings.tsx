@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardBody, CardHeader, PageHeader } from '@/components/ui/card'
 import { PortsCard } from '@/components/admin/ports-card'
+import { SystemInfoCard } from '@/components/admin/system-info-card'
 import { VersionTag } from '@/components/ui/version-tag'
 
 interface SslInfo {
@@ -203,6 +204,11 @@ export function SettingsPage() {
       {/* 邮件端口状态 */}
       <div className="mt-4">
         <PortsCard />
+      </div>
+
+      {/* 系统信息：版本、域名、端口、数据目录 */}
+      <div className="mt-4">
+        <SystemInfoCard />
       </div>
 
       <Card className="mt-4">

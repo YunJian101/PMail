@@ -1,10 +1,53 @@
 #!/bin/bash
-# 配置页提交后：把 PMAIL_PORT_* 写回 ports.env 并重启
-ENV_FILE="${TRIM_PKGVAR}/ports.env"
-[ -r "${ENV_FILE}" ] || exit 0
-env | grep '^PMAIL_PORT_' | while IFS='=' read -r k v; do
-    sed -i "/^${k}=/d" "${ENV_FILE}"
-    echo "${k}=${v}" >> "${ENV_FILE}"
-done
+# 配置页保存后：把向导里的端口写回 ports.env / config.json / 桌面入口，然后重启
+set -u
+
+VAR="${TRIM_PKGVAR}"
+ENV_FILE="${VAR}/ports.env"
+CFG="${VAR}/config/config.json"
+UI_CFG="${TRIM_APPDEST}/ui/config"
+
+touch "${ENV_FILE}" 2>/dev/null
+
+# write_port <env 名> <值>：只接受纯数字，其它一律忽略（保留原值）
+write_port() {
+    name="$1"
+    value="${2:-}"
+    [ -z "${value}" ] && return 0
+    case "${value}" in
+        *[!0-9]*) return 0 ;;
+    esac
+    sed -i "/^${name}=/d" "${ENV_FILE}" 2>/dev/null
+    echo "${name}=${value}" >> "${ENV_FILE}"
+}
+
+write_port PMAIL_PORT_SMTP "${wizard_smtp:-}"
+write_port PMAIL_PORT_SMTPS "${wizard_smtps:-}"
+write_port PMAIL_PORT_SUBMISSION "${wizard_submission:-}"
+write_port PMAIL_PORT_IMAP "${wizard_imap:-}"
+write_port PMAIL_PORT_POP3 "${wizard_pop3:-}"
+write_port PMAIL_PORT_POP3S "${wizard_pop3s:-}"
+
+# 网页端口：同时写 ports.env、config.json 和桌面入口
+WEB_PORT="${wizard_port:-}"
+case "${WEB_PORT}" in
+    ''|*[!0-9]*) WEB_PORT="" ;;
+esac
+
+if [ -n "${WEB_PORT}" ]; then
+    write_port PMAIL_PORT_WEB "${WEB_PORT}"
+
+    if [ -f "${CFG}" ]; then
+        sed -i "s/\"httpPort\"[[:space:]]*:[[:space:]]*[0-9]\+/\"httpPort\":${WEB_PORT}/" "${CFG}"
+    fi
+
+    if [ -f "${UI_CFG}" ]; then
+        sed -i "s/\"port\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"port\": \"${WEB_PORT}\"/" "${UI_CFG}"
+    fi
+fi
+
+echo "config ok: $(date) web=${WEB_PORT:-unchanged}" >> "${VAR}/install.log" 2>/dev/null
+
+# 重启应用（main restart 内部会先 stop 再 start）
 "${TRIM_APPDEST}/cmd/main" restart > /dev/null 2>&1
 exit 0

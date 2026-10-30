@@ -16,8 +16,13 @@ port_busy() {
 }
 
 # ---------- 1. 选一个空闲的网页端口 ----------
-WEB_PORT=""
-if [ -r "${ENV_FILE}" ]; then
+# 优先用安装向导里填的 wizard_port；没填就沿用 ports.env；再不行自动挑空闲端口
+WEB_PORT="${wizard_port:-}"
+case "${WEB_PORT}" in
+    ''|*[!0-9]*) WEB_PORT="" ;;
+esac
+
+if [ -z "${WEB_PORT}" ] && [ -r "${ENV_FILE}" ]; then
     WEB_PORT=$(sed -n 's/^PMAIL_PORT_WEB=\([0-9]\{2,5\}\)$/\1/p' "${ENV_FILE}" | head -n 1)
 fi
 if [ -z "${WEB_PORT}" ] || port_busy "${WEB_PORT}"; then
@@ -27,8 +32,27 @@ if [ -z "${WEB_PORT}" ] || port_busy "${WEB_PORT}"; then
     done
 fi
 
-# 写回 ports.env
+# 邮件端口：向导里填了就用填的
+write_port() {
+    name="$1"
+    value="${2:-}"
+    [ -z "${value}" ] && return 0
+    case "${value}" in
+        *[!0-9]*) return 0 ;;
+    esac
+    sed -i "/^${name}=/d" "${ENV_FILE}" 2>/dev/null
+    echo "${name}=${value}" >> "${ENV_FILE}"
+}
+
 touch "${ENV_FILE}"
+write_port PMAIL_PORT_SMTP "${wizard_smtp:-}"
+write_port PMAIL_PORT_SMTPS "${wizard_smtps:-}"
+write_port PMAIL_PORT_SUBMISSION "${wizard_submission:-}"
+write_port PMAIL_PORT_IMAP "${wizard_imap:-}"
+write_port PMAIL_PORT_POP3 "${wizard_pop3:-}"
+write_port PMAIL_PORT_POP3S "${wizard_pop3s:-}"
+
+# 写回 ports.env
 sed -i "/^PMAIL_PORT_WEB=/d" "${ENV_FILE}"
 echo "PMAIL_PORT_WEB=${WEB_PORT}" >> "${ENV_FILE}"
 

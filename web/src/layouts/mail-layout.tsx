@@ -1,25 +1,30 @@
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Folder, PenLine } from 'lucide-react'
+import { ChevronDown, Folder, LogOut, PenLine, Settings } from 'lucide-react'
 import { MailSidebar } from '@/components/mail/sidebar'
 import { Composer } from '@/components/mail/composer'
 import { Button } from '@/components/ui/button'
+import { Avatar } from '@/components/ui/avatar'
 import {
   Dropdown,
   DropdownContent,
   DropdownItem,
+  DropdownSeparator,
   DropdownTrigger,
 } from '@/components/ui/dropdown'
 import { fetchFolders } from '@/api/folders'
 import { tagToSlug } from '@/lib/folders'
 import { useCompose } from '@/store/compose'
+import { useSession } from '@/store/session'
 
 export default function MailLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { folder = 'inbox' } = useParams<{ folder: string }>()
   const startCompose = useCompose((state) => state.start)
+  const user = useSession((state) => state.user)
+  const signOut = useSession((state) => state.signOut)
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders, staleTime: 60_000 })
 
   const current = (folders.data ?? []).find((item) => tagToSlug(item.tag) === folder)
@@ -67,6 +72,41 @@ export default function MailLayout() {
             <PenLine className="h-3.5 w-3.5" />
             {t('compose.title')}
           </Button>
+
+          {/* 窄屏没有侧边栏，账号菜单放这里，否则手机上退不出去 */}
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <button
+                className="flex flex-none items-center gap-1 rounded-full p-0.5 transition-colors hover:bg-surface-3"
+                aria-label={t('account.title')}
+              >
+                <Avatar name={user?.name} email={user?.account} size={28} />
+                <ChevronDown className="h-3 w-3 text-fg-subtle" />
+              </button>
+            </DropdownTrigger>
+            <DropdownContent align="end" className="min-w-[210px]">
+              <div className="px-2 py-1.5">
+                <div className="truncate text-[13px] font-[600]">{user?.name || user?.account}</div>
+                <div className="truncate text-[11.5px] text-fg-subtle">{user?.account}</div>
+              </div>
+              <DropdownSeparator />
+              <DropdownItem onSelect={() => navigate('/mail/settings')}>
+                <Settings className="h-3.5 w-3.5" />
+                {t('account.title')}
+              </DropdownItem>
+              <DropdownSeparator />
+              <DropdownItem
+                danger
+                onSelect={async () => {
+                  await signOut()
+                  navigate('/login', { replace: true })
+                }}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                {t('common.logout')}
+              </DropdownItem>
+            </DropdownContent>
+          </Dropdown>
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden">

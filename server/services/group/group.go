@@ -292,11 +292,11 @@ func getGroupNum(ctx *context.Context, groupName string, mustUnread bool) int {
 		if mustUnread {
 			count = 0
 		} else {
-			// 与网页端口径一致：发出且没被移走的才算发件箱
+			// 与网页端口径一致：group_id=0 的历史发件 + 显式放进发件箱的
 			db.Instance.SQL(
 				"select count(1) from user_email ue left join email e on e.id=ue.email_id "+
-					"where ue.user_id=? and ue.status=1 and (ue.group_id=? or (e.type=1 and (ue.group_id=0 or ue.group_id=?)))",
-				ctx.UserID, models.Sent, models.Sent,
+					"where ue.user_id=? and ue.status=1 and ((ue.group_id=0 and e.type=1) or ue.group_id=?)",
+				ctx.UserID, models.Sent,
 			).Get(&count)
 		}
 	case "Drafts":
@@ -322,49 +322,34 @@ func getGroupNum(ctx *context.Context, groupName string, mustUnread bool) int {
 	return count
 }
 
+// Move2DefaultBox 把邮件移到内置箱子。
+//
+// 关键：group_id 也一起写成目标箱子的编号，而不是重置成 0。
+// 以前只改 status、把 group_id 归零，导致「group_id=0」既表示"从没移动过"、
+// 也表示"移动到另一个内置箱了"，列表无法区分，于是邮件会同时出现在两个箱子里。
 func Move2DefaultBox(ctx *context.Context, mailIds []int, groupName string) error {
+	move := func(status int8, boxId int) error {
+		_, err := db.Instance.Table(&models.UserEmail{}).Where(builder.Eq{
+			"user_id":  ctx.UserID,
+			"email_id": mailIds,
+		}).Update(map[string]interface{}{
+			"status":   status,
+			"group_id": boxId,
+		})
+		return err
+	}
+
 	switch groupName {
 	case "Deleted Messages":
-		err := del_email.DelEmail(ctx, mailIds, false)
-		if err != nil {
-			return err
-		}
+		return del_email.DelEmail(ctx, mailIds, false)
 	case "INBOX":
-		_, err := db.Instance.Table(&models.UserEmail{}).Where(builder.Eq{
-			"user_id":  ctx.UserID,
-			"email_id": mailIds,
-		}).Update(map[string]interface{}{
-			"status":   consts.EmailTypeReceive,
-			"group_id": 0,
-		})
-		return err
+		return move(consts.EmailTypeReceive, models.INBOX)
 	case "Sent Messages":
-		_, err := db.Instance.Table(&models.UserEmail{}).Where(builder.Eq{
-			"user_id":  ctx.UserID,
-			"email_id": mailIds,
-		}).Update(map[string]interface{}{
-			"status":   consts.EmailStatusSent,
-			"group_id": 0,
-		})
-		return err
+		return move(consts.EmailStatusSent, models.Sent)
 	case "Drafts":
-		_, err := db.Instance.Table(&models.UserEmail{}).Where(builder.Eq{
-			"user_id":  ctx.UserID,
-			"email_id": mailIds,
-		}).Update(map[string]interface{}{
-			"status":   consts.EmailStatusDrafts,
-			"group_id": 0,
-		})
-		return err
+		return move(consts.EmailStatusDrafts, models.Drafts)
 	case "Junk":
-		_, err := db.Instance.Table(&models.UserEmail{}).Where(builder.Eq{
-			"user_id":  ctx.UserID,
-			"email_id": mailIds,
-		}).Update(map[string]interface{}{
-			"status":   consts.EmailStatusJunk,
-			"group_id": 0,
-		})
-		return err
+		return move(consts.EmailStatusJunk, models.Junk)
 	}
 	return nil
 }

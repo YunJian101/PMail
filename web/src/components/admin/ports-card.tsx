@@ -1,8 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import * as React from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Network } from 'lucide-react'
 import { post } from '@/api/client'
+import { toast, errorText } from '@/lib/toast'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Field, Input } from '@/components/ui/input'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -18,11 +22,22 @@ interface PortsInfo {
   ports: PortState[]
 }
 
+/** 服务名 → ports.env 键名 */
+const SERVICE_TO_KEY: Record<string, string> = {
+  SMTP: 'PMAIL_PORT_SMTP',
+  'SMTP-SSL': 'PMAIL_PORT_SMTPS',
+  'SMTP-SUBMISSION': 'PMAIL_PORT_SUBMISSION',
+  IMAP: 'PMAIL_PORT_IMAP',
+  POP3: 'PMAIL_PORT_POP3',
+  POP3S: 'PMAIL_PORT_POP3S',
+}
+
 /**
- * 邮件端口状态：端口被占用时应用不会退出，这里能看出哪个端口没起来。
+ * 邮件端口：显示各端口监听状态，并允许直接改（写 ports.env 后重启生效）。
  */
 export function PortsCard() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
 
   const portsQuery = useQuery({
     queryKey: ['mail-ports'],
@@ -33,6 +48,30 @@ export function PortsCard() {
 
   const info = portsQuery.data
   const failed = info?.ports.filter((item) => !item.ok) ?? []
+
+  const [draft, setDraft] = React.useState<Record<string, string>>({})
+  const [touched, setTouched] = React.useState(false)
+
+  // 首次拿到数据时填充表单
+  React.useEffect(() => {
+    if (!info || touched) return
+    const next: Record<string, string> = {}
+    for (const item of info.ports) {
+      const key = SERVICE_TO_KEY[item.service]
+      if (key) next[key] = String(item.port)
+    }
+    setDraft(next)
+  }, [info, touched])
+
+  const saveMutation = useMutation({
+    mutationFn: () => post<{ restart: boolean }>('/api/settings/mail_ports/update', { ports: draft }),
+    onSuccess: () => {
+      toast.success(t('admin.settings.portsSaved'))
+      setTouched(false)
+      void queryClient.invalidateQueries({ queryKey: ['mail-ports'] })
+    },
+    onError: (error) => toast.error(errorText(error)),
+  })
 
   return (
     <Card>
@@ -82,6 +121,36 @@ export function PortsCard() {
                 {t('admin.settings.portsDesc')}
               </p>
             )}
+
+            <div className="mt-4 grid gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              {info.ports.map((item) => {
+                const key = SERVICE_TO_KEY[item.service]
+                if (!key) return null
+                return (
+                  <Field key={key} label={item.service}>
+                    <Input
+                      value={draft[key] ?? ''}
+                      inputMode="numeric"
+                      onChange={(event) => {
+                        setTouched(true)
+                        setDraft((prev) => ({ ...prev, [key]: event.target.value.replace(/[^0-9]/g, '') }))
+                      }}
+                    />
+                  </Field>
+                )
+              })}
+            </div>
+
+            <div className="mt-3 flex items-center gap-3">
+              <Button
+                variant="primary"
+                disabled={!touched || saveMutation.isPending}
+                onClick={() => saveMutation.mutate()}
+              >
+                {saveMutation.isPending ? t('common.loading') : t('admin.settings.portsSave')}
+              </Button>
+              <span className="text-[11.5px] text-fg-subtle">{t('admin.settings.portsRestart')}</span>
+            </div>
           </>
         )}
       </CardBody>

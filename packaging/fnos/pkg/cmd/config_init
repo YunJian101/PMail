@@ -1,22 +1,32 @@
 #!/bin/bash
-# 配置页打开前：把当前端口回显出去（fnOS 会把这里的输出展示给用户）
-ENV_FILE="${TRIM_PKGVAR}/ports.env"
+# 配置页打开前：输出当前端口，供向导回显（键名与 wizard/* 里的 field 对应）
+set -u
 
-cat <<'TIP'
-# 邮件端口配置：每行一个「名称=端口」，改完保存即可自动重启生效。
-# 网页端口在安装向导或系统设置里改，不在这里。
-TIP
+VAR="${TRIM_PKGVAR}"
+ENV_FILE="${VAR}/ports.env"
+CFG="${VAR}/config/config.json"
 
-if [ -r "${ENV_FILE}" ]; then
-    cat "${ENV_FILE}"
-else
-    cat <<'DEFAULT'
-PMAIL_PORT_SMTP=25
-PMAIL_PORT_SMTPS=465
-PMAIL_PORT_SUBMISSION=587
-PMAIL_PORT_IMAP=993
-PMAIL_PORT_POP3=110
-PMAIL_PORT_POP3S=995
-DEFAULT
+read_env() { # $1=变量名 $2=默认值
+    if [ -r "${ENV_FILE}" ]; then
+        v=$(sed -n "s/^$1=\([0-9]\{1,5\}\)$/\1/p" "${ENV_FILE}" | head -n 1)
+        [ -n "${v}" ] && { echo "${v}"; return; }
+    fi
+    echo "$2"
+}
+
+# 网页端口优先取 config.json 的 httpPort
+WEB_PORT=""
+if [ -r "${CFG}" ]; then
+    WEB_PORT=$(sed -n 's/.*"httpPort"[[:space:]]*:[[:space:]]*\([0-9]\{1,5\}\).*/\1/p' "${CFG}" | head -n 1)
 fi
+[ -z "${WEB_PORT}" ] && WEB_PORT=$(read_env PMAIL_PORT_WEB 8080)
+
+echo "wizard_port=${WEB_PORT}"
+echo "wizard_smtp=$(read_env PMAIL_PORT_SMTP 25)"
+echo "wizard_smtps=$(read_env PMAIL_PORT_SMTPS 465)"
+echo "wizard_submission=$(read_env PMAIL_PORT_SUBMISSION 587)"
+echo "wizard_imap=$(read_env PMAIL_PORT_IMAP 993)"
+echo "wizard_pop3=$(read_env PMAIL_PORT_POP3 110)"
+echo "wizard_pop3s=$(read_env PMAIL_PORT_POP3S 995)"
+
 exit 0

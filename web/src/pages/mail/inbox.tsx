@@ -226,10 +226,13 @@ export function InboxPage() {
     enabled: Boolean(selectedId),
   })
 
-  // 打开详情会被后端标记为已读，这里把列表的未读状态同步掉
+  // 打开详情会被后端标记为已读，这里把列表和未读数一起同步掉
   React.useEffect(() => {
     if (detailQuery.data && selectedId) {
       queryClient.invalidateQueries({ queryKey: ['mail-list'] })
+      // 不刷这个的话，侧边栏/收件箱的未读数要等 15 秒轮询才变
+      queryClient.invalidateQueries({ queryKey: ['unread'] })
+      queryClient.invalidateQueries({ queryKey: ['folders'] })
     }
   }, [detailQuery.data, selectedId, queryClient])
 

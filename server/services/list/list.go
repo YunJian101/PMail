@@ -79,18 +79,19 @@ func genSQL(ctx *context.Context, count bool, tagInfo dto.SearchTag, keyword str
 		sql += " and type =? "
 		sqlParams = append(sqlParams, tagInfo.Type)
 	} else if tagInfo.Type == consts.EmailTypeSend {
-		// 发件箱里的邮件 = 「发出且还没被移走」。
-		// 以前只判断 email.type=1，而移动邮件只改 user_email.group_id，
-		// 结果移到广告箱/自定义分组之后，发件箱里还会再显示一份。
-		sql += " and (ue.group_id = ? or (type = ? and (ue.group_id = 0 or ue.group_id = ?)))"
-		sqlParams = append(sqlParams, models.Sent, tagInfo.Type, models.Sent)
+		// 发件箱 = 「发出且没被移走」。
+		// group_id=0 是历史数据（从没移动过），group_id=Sent 是显式放进发件箱的；
+		// 其它任何 group_id 都表示已经移到别的箱子了。
+		sql += " and ((ue.group_id = 0 and type = ?) or ue.group_id = ?)"
+		sqlParams = append(sqlParams, tagInfo.Type, models.Sent)
 	}
 
 	if tagInfo.GroupId != -1 {
 		if tagInfo.GroupId > 0 {
 			sql += " and ue.group_id=? "
 			sqlParams = append(sqlParams, tagInfo.GroupId)
-		} else if tagInfo.GroupId == 0 && tagInfo.Status == -1 {
+		} else if tagInfo.GroupId == 0 && tagInfo.Status == -1 && tagInfo.Type != consts.EmailTypeSend {
+			// 收件箱：只算默认位置和 INBOX 箱（发件箱有自己的条件，别在这里再套一层）
 			sql += " and (ue.group_id=? or ue.group_id=0)"
 			sqlParams = append(sqlParams, models.INBOX)
 		}

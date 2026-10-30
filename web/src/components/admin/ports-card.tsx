@@ -55,7 +55,7 @@ export function PortsCard() {
   // 首次拿到数据时填充表单
   React.useEffect(() => {
     if (!info || touched) return
-    const next: Record<string, string> = {}
+    const next: Record<string, string> = { PMAIL_PORT_WEB: String(info.webPort) }
     for (const item of info.ports) {
       const key = SERVICE_TO_KEY[item.service]
       if (key) next[key] = String(item.port)
@@ -123,6 +123,19 @@ export function PortsCard() {
             )}
 
             <div className="mt-4 grid gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label={t('admin.settings.webPort')}>
+                <Input
+                  value={draft.PMAIL_PORT_WEB ?? ''}
+                  inputMode="numeric"
+                  onChange={(event) => {
+                    setTouched(true)
+                    setDraft((prev) => ({
+                      ...prev,
+                      PMAIL_PORT_WEB: event.target.value.replace(/[^0-9]/g, ''),
+                    }))
+                  }}
+                />
+              </Field>
               {info.ports.map((item) => {
                 const key = SERVICE_TO_KEY[item.service]
                 if (!key) return null

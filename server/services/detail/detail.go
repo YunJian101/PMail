@@ -36,14 +36,16 @@ func GetEmailDetail(ctx *context.Context, id int, markRead bool) (*response.Emai
 		return nil, err
 	}
 
-	email.IsRead = ue.IsRead
-
 	if markRead && ue.IsRead == 0 {
 		ue.IsRead = 1
-		_, err = db.Instance.Where("id=?", ue.ID).Update(&ue)
-		if err != nil {
+		if _, err = db.Instance.Where("id=?", ue.ID).Update(&ue); err != nil {
 			log.WithContext(ctx).Errorf("SQL error:%+v", err)
 		}
+		// 返回给前端的状态也要是「已读」，否则刚点开就显示成未读、
+		// 「标为未读」按钮还会把已经读过一遍的邮件又标回去
+		email.IsRead = 1
+	} else {
+		email.IsRead = ue.IsRead
 	}
 
 	// 将内容中的cid内容替换成url

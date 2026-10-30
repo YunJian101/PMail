@@ -296,6 +296,25 @@ try {
     $selfDisable = Invoke-Api "$httpUrl/api/user/edit" @{ __raw = '{"id":1,"account":"admin","username":"admin","disabled":1}' }
     Check 'admin cannot disable itself' ($selfDisable.Json.errorNo -ne 0) $selfDisable.Text
 
+    # ---------- 10c. account: display name + password (self-service) ----------
+    $profile = Invoke-Api "$httpUrl/api/user/profile" @{ name = 'E2E Admin' }
+    Check 'user can change own display name' ($profile.Json.errorNo -eq 0 -and $profile.Json.data.name -eq 'E2E Admin') $profile.Text
+
+    $badOld = Invoke-Api "$httpUrl/api/settings/modify_password" @{ old_password = 'wrong-one'; password = 'NewPassw0rd!e2e' }
+    Check 'password change rejected when old password is wrong' ($badOld.Json.errorNo -ne 0) $badOld.Text
+
+    $shortPwd = Invoke-Api "$httpUrl/api/settings/modify_password" @{ old_password = 'Passw0rd!e2e'; password = 'short' }
+    Check 'password change rejected when too short' ($shortPwd.Json.errorNo -ne 0) $shortPwd.Text
+
+    $chg = Invoke-Api "$httpUrl/api/settings/modify_password" @{ old_password = 'Passw0rd!e2e'; password = 'NewPassw0rd!e2e' }
+    Check 'password change works with correct old password' ($chg.Json.errorNo -eq 0) $chg.Text
+
+    $oldLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'admin'; password = 'Passw0rd!e2e' }
+    Check 'old password no longer works' ($oldLogin.Json.errorNo -ne 0) $oldLogin.Text
+
+    $newLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'admin'; password = 'NewPassw0rd!e2e' }
+    Check 'new password works' ($newLogin.Json.errorNo -eq 0) $newLogin.Text
+
     # ---------- 11. on-disk result ----------
     $cfgAfter = Get-Content (Join-Path $root 'config\config.json') -Raw | ConvertFrom-Json
     Check 'config.json marked as installed' ($cfgAfter.isInit -eq $true)

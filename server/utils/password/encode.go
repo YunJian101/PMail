@@ -11,6 +11,15 @@ func Encode(password string) string {
 	return encodePwd
 }
 
+// Verify 校验明文密码与库里存的摘要是否匹配。
+// 因为盐是固定的，直接重算比对即可（不需要改数据格式）。
+func Verify(raw, encoded string) bool {
+	if encoded == "" {
+		return false
+	}
+	return Encode(raw) == encoded
+}
+
 func Md5Encode(str string) string {
 	h := md5.New()
 	h.Write([]byte(str))

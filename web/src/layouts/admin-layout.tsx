@@ -6,7 +6,6 @@ import {
   Folder,
   Moon,
   Settings,
-  Shield,
   Sun,
   Users,
   Zap,
@@ -23,7 +22,6 @@ const NAV_ITEMS = [
   { to: '/admin/folders', label: 'admin.groups', icon: Folder },
   { to: '/admin/rules', label: 'admin.rules', icon: Filter },
   { to: '/admin/plugins', label: 'admin.plugins', icon: Zap },
-  { to: '/admin/security', label: 'admin.security', icon: Shield },
   { to: '/admin/settings', label: 'admin.settings', icon: Settings },
 ] as const
 

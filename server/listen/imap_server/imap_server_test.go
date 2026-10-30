@@ -20,6 +20,23 @@ import (
 	"time"
 )
 
+// ensureTestConfig 兜底：根包的 E2E 用例会临时删掉 server/config/config.json，
+// 如果整套测试按顺序跑到这里而文件还没还原，这个包就会因为「没有数据库配置」而 panic。
+// 缺配置时补一个最小的 sqlite 配置，保证本包的用例可以独立跑。
+func ensureTestConfig() {
+	path := filepath.Join(config.ROOT_PATH, "config", "config.json")
+	if _, err := os.Stat(path); err == nil {
+		return
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	cfg := `{"logLevel":"info","domain":"test.domain","domains":["test.domain"],` +
+		`"webDomain":"mail.test.domain","dbType":"sqlite","dbDSN":"config/pmail_temp.db",` +
+		`"dkimPrivateKeyPath":"config/dkim/dkim.priv",` +
+		`"sslType":"1","SSLPrivateKeyPath":"./config/ssl/private.key",` +
+		`"SSLPublicKeyPath":"./config/ssl/public.crt","httpsEnabled":2,"isInit":true}`
+	_ = os.WriteFile(path, []byte(cfg), 0o644)
+}
+
 var clientUnLogin *imapclient.Client
 var clientLogin *imapclient.Client
 var imapTestAddr string
@@ -30,7 +47,16 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	config.ROOT_PATH = filepath.Clean(filepath.Join(wd, "../..")) + string(os.PathSeparator)
+	ensureTestConfig()
 	config.Init()
+
+	// 用独立的临时库：根包的 E2E 用例也用 sqlite 文件，共用一个库会互相污染
+	// （会冒出「STATUS INBOX () -> only valid in the authenticated state」这种怪错）
+	imapTestDB := filepath.Join(wd, "pmail_imap_test.db")
+	_ = os.Remove(imapTestDB)
+	config.Instance.DbType = config.DBTypeSQLite
+	config.Instance.DbDSN = imapTestDB
+
 	if err := db.Init(""); err != nil {
 		panic(err)
 	}

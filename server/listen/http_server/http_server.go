@@ -56,6 +56,7 @@ func router(mux *http.ServeMux) {
 	mux.HandleFunc("/api/user/create", contextIterceptor(controllers.CreateUser))
 	mux.HandleFunc("/api/user/edit", contextIterceptor(controllers.EditUser))
 	mux.HandleFunc("/api/user/info", contextIterceptor(controllers.Info))
+	mux.HandleFunc("/api/user/profile", contextIterceptor(controllers.UpdateProfile))
 	mux.HandleFunc("/api/user/list", contextIterceptor(controllers.UserList))
 	mux.HandleFunc("/api/plugin/settings/", contextIterceptor(controllers.SettingsHtml))
 	mux.HandleFunc("/api/plugin/list", contextIterceptor(controllers.GetPluginList))

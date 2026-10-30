@@ -12,7 +12,7 @@ import { UsersPage } from '@/pages/admin/users'
 import { FoldersPage } from '@/pages/admin/folders'
 import { RulesPage } from '@/pages/admin/rules'
 import { PluginsPage } from '@/pages/admin/plugins'
-import { SecurityPage } from '@/pages/admin/security'
+import AccountPage from '@/pages/account'
 import { SettingsPage } from '@/pages/admin/settings'
 
 function BootScreen() {
@@ -91,6 +91,7 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/mail/inbox" replace />} />
+        <Route path="settings" element={<AccountPage />} />
         <Route path=":folder" element={<InboxPage />} />
       </Route>
 
@@ -107,7 +108,7 @@ export default function App() {
         <Route path="folders" element={<FoldersPage />} />
         <Route path="rules" element={<RulesPage />} />
         <Route path="plugins" element={<PluginsPage />} />
-        <Route path="security" element={<SecurityPage />} />
+
         <Route path="settings" element={<SettingsPage />} />
       </Route>
 

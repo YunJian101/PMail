@@ -14,6 +14,9 @@ export function fetchSession() {
   return get<SessionUser>('/api/user/info')
 }
 
-export function modifyPassword(password: string) {
-  return post<string>('/api/settings/modify_password', { password })
+export function modifyPassword(oldPassword: string, password: string) {
+  return post<string>('/api/settings/modify_password', {
+    old_password: oldPassword,
+    password,
+  })
 }

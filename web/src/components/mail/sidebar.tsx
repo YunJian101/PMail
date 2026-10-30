@@ -154,7 +154,7 @@ export function MailSidebar() {
         ) : null}
 
         <NavLink
-          to="/admin/security"
+          to="/mail/settings"
           className={({ isActive }) =>
             cn(
               'flex h-[36px] items-center gap-2.5 rounded-sm px-2.5 text-[13.5px] font-[500] text-fg-muted',
@@ -164,7 +164,7 @@ export function MailSidebar() {
           }
         >
           <Settings className="h-[17px] w-[17px] text-fg-subtle" strokeWidth={1.7} />
-          {t('nav.settings')}
+          {t('account.title')}
         </NavLink>
 
         <div className="mt-1.5 flex items-center gap-1 rounded-md border border-border-base bg-surface-2 p-1.5">
@@ -184,13 +184,16 @@ export function MailSidebar() {
                 <div className="text-[11.5px] text-fg-subtle">{user?.account}</div>
               </div>
               <DropdownSeparator />
-              <DropdownItem onSelect={() => navigate('/admin/security')}>
-                <Shield className="h-3.5 w-3.5" />
-                {t('admin.security')}
-              </DropdownItem>
-              <DropdownItem onSelect={toggle}>
-                {resolved === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-                {t('common.theme')}
+              {/* 没有权限的入口直接不显示：普通用户看不到管理后台相关项 */}
+              {user?.is_admin ? (
+                <DropdownItem onSelect={() => navigate('/admin/users')}>
+                  <Shield className="h-3.5 w-3.5" />
+                  {t('nav.admin')}
+                </DropdownItem>
+              ) : null}
+              <DropdownItem onSelect={() => navigate('/mail/settings')}>
+                <Settings className="h-3.5 w-3.5" />
+                {t('account.title')}
               </DropdownItem>
               <DropdownItem onSelect={() => setLanguage((currentLanguage() === 'zh' ? 'en' : 'zh') as Language)}>
                 <Languages className="h-3.5 w-3.5" />

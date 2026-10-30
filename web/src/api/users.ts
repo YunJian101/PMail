@@ -27,6 +27,11 @@ export function updateUser(payload: UserPayload) {
 }
 
 /** 插件列表只返回已注册的 hook 名（字符串数组） */
+/** 改自己的显示名（后端只认当前登录用户，不接受目标 id） */
+export function updateProfile(name: string) {
+  return post<{ account: string; name: string }>('/api/user/profile', { name })
+}
+
 export function fetchPlugins() {
   return get<string[]>('/api/plugin/list')
 }

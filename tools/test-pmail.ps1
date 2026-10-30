@@ -315,6 +315,23 @@ try {
     $newLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'admin'; password = 'NewPassw0rd!e2e' }
     Check 'new password works' ($newLogin.Json.errorNo -eq 0) $newLogin.Text
 
+    # ---------- 10d. disabled account gets a clear login error ----------
+    $createBlocked = Invoke-Api "$httpUrl/api/user/create" @{ account = 'blocked'; username = 'Blocked'; password = 'BlockedPass1!' }
+    Check 'admin can create another user' ($createBlocked.Json.errorNo -eq 0) $createBlocked.Text
+
+    $userList = Invoke-Api "$httpUrl/api/user/list" @{ current_page = '1'; page_size = '50' }
+    $blockedUser = @($userList.Json.data.list | Where-Object { $_.Account -eq 'blocked' })[0]
+    Check 'new user shows up in the list' ($null -ne $blockedUser) $userList.Text
+
+    if ($blockedUser) {
+        $raw = '{"id":' + $blockedUser.ID + ',"account":"blocked","username":"Blocked","disabled":1}'
+        $disable = Invoke-Api "$httpUrl/api/user/edit" @{ __raw = $raw }
+        Check 'admin can disable another user' ($disable.Json.errorNo -eq 0) $disable.Text
+
+        $blockedLogin = Invoke-Api "$httpUrl/api/login" @{ account = 'blocked'; password = 'BlockedPass1!' }
+        Check 'disabled account gets a clear reason' ($blockedLogin.Json.errorNo -ne 0 -and ($blockedLogin.Json.errorMsg -match '停用|disabled')) $blockedLogin.Text
+    }
+
     # ---------- 11. on-disk result ----------
     $cfgAfter = Get-Content (Join-Path $root 'config\config.json') -Raw | ConvertFrom-Json
     Check 'config.json marked as installed' ($cfgAfter.isInit -eq $true)

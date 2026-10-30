@@ -30,6 +30,8 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState('')
   const [showPassword, setShowPassword] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
+  /** 登录失败原因（例如「账号已被停用」），常驻在表单上方，不像 toast 一闪就没 */
+  const [errorMsg, setErrorMsg] = React.useState('')
 
   /** RequireAuth 跳过来时带了原始路径，登录后回到那里 */
   const from = (location.state as { from?: string } | null)?.from
@@ -40,6 +42,7 @@ export default function LoginPage() {
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (submitting) return
+    setErrorMsg('')
     if (!account.trim() || !password) {
       toast.error(t('login.fillRequired'))
       return
@@ -49,7 +52,9 @@ export default function LoginPage() {
       await signIn(account.trim(), password)
       navigate(from ?? '/mail/inbox', { replace: true })
     } catch (error) {
-      toast.error(t('login.failed'), errorText(error))
+      const detail = errorText(error)
+      setErrorMsg(detail)
+      toast.error(t('login.failed'), detail)
     } finally {
       setSubmitting(false)
     }
@@ -147,10 +152,23 @@ export default function LoginPage() {
             <p className="mt-1 text-[12.5px] text-fg-muted">{t('login.subtitle')}</p>
 
             <form className="mt-7" onSubmit={onSubmit} noValidate>
+              {errorMsg ? (
+                <div
+                  role="alert"
+                  className="mb-4 flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-[12.5px] leading-relaxed text-danger"
+                >
+                  <ShieldCheck className="mt-0.5 h-4 w-4 flex-none" />
+                  <span className="min-w-0 break-words">{errorMsg}</span>
+                </div>
+              ) : null}
+
               <Field label={t('login.account')}>
                 <Input
                   value={account}
-                  onChange={(event) => setAccount(event.target.value)}
+                  onChange={(event) => {
+                    setAccount(event.target.value)
+                    setErrorMsg('')
+                  }}
                   placeholder={t('login.accountPlaceholder')}
                   autoComplete="username"
                   inputMode="email"
@@ -163,7 +181,10 @@ export default function LoginPage() {
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    setErrorMsg('')
+                  }}
                   placeholder={t('login.passwordPlaceholder')}
                   autoComplete="current-password"
                   leading={<Lock className="h-4 w-4" />}

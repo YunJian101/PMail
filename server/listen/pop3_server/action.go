@@ -106,14 +106,18 @@ func (a action) Pass(session *gopop.Session, pwd string) error {
 
 	var user models.User
 
-	encodePwd := password.Encode(pwd)
-
-	_, err := db.Instance.Where("account =? and password =? and disabled = 0", session.User, encodePwd).Get(&user)
+	// 分三步判断：账号存在 -> 密码正确 -> 没被停用（停用要给出明确原因）
+	_, err := db.Instance.Where("account = ?", session.User).Get(&user)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.WithContext(session.Ctx.(*context.Context)).Errorf("%+v", err)
 	}
 
-	if user.ID > 0 {
+	if user.ID > 0 && password.Verify(pwd, user.Password) {
+		if user.Disabled == 1 {
+			log.WithContext(session.Ctx.(*context.Context)).Infof("POP3 PASS rejected: account disabled")
+			return errors2.New("account disabled, please contact the administrator")
+		}
+
 		session.Status = gopop.TRANSACTION
 
 		session.Ctx.(*context.Context).UserID = user.ID
@@ -144,12 +148,17 @@ func (a action) Apop(session *gopop.Session, username, digest string) error {
 
 	var user models.User
 
-	_, err := db.Instance.Where("account =? and disabled = 0", username).Get(&user)
+	_, err := db.Instance.Where("account = ?", username).Get(&user)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.WithContext(session.Ctx.(*context.Context)).Errorf("%+v", err)
 	}
 
 	if user.ID > 0 && digest == password.Md5Encode(user.Password) {
+		if user.Disabled == 1 {
+			log.WithContext(session.Ctx.(*context.Context)).Infof("POP3 APOP rejected: account disabled")
+			return errors2.New("account disabled, please contact the administrator")
+		}
+
 		session.User = username
 		session.Status = gopop.TRANSACTION
 

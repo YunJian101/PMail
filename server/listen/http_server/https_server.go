@@ -157,9 +157,12 @@ func getLoginInfoByToken(token string) (models.User, error) {
 		return ret, errors.New("token expired")
 	}
 	var user models.User
-	db.Instance.Table("user").Where("account =? and disabled=0", account).Get(&user)
+	db.Instance.Table("user").Where("account = ?", account).Get(&user)
 	if user.ID == 0 {
 		return ret, errors.New("account or password error")
+	}
+	if user.Disabled == 1 {
+		return ret, errors.New("account disabled, please contact the administrator")
 	}
 	tokenPwd := password.Md5Encode(fmt.Sprintf("%s%d", user.Password, requestTimeStamp))
 	if tokenPwd != encodePwd {

@@ -71,19 +71,23 @@ func (s *Session) AuthPlain(username, pwd string) error {
 
 	var user models.User
 
-	encodePwd := password.Encode(pwd)
-
 	infos := strings.Split(username, "@")
 	if len(infos) > 1 {
 		username = infos[0]
 	}
 
-	_, err := db.Instance.Where("account =? and password =? and disabled=0", username, encodePwd).Get(&user)
+	// 分三步判断：账号存在 -> 密码正确 -> 没被停用（停用要给出明确原因）
+	_, err := db.Instance.Where("account = ?", username).Get(&user)
 	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("%+v", err)
 	}
 
-	if user.ID > 0 {
+	if user.ID > 0 && password.Verify(pwd, user.Password) {
+		if user.Disabled == 1 {
+			log.WithContext(s.Ctx).Infof("auth rejected: account disabled %s", user.Account)
+			return errors.New("account disabled, please contact the administrator")
+		}
+
 		s.Ctx.UserAccount = user.Account
 		s.Ctx.UserID = user.ID
 		s.Ctx.UserName = user.Name
@@ -93,7 +97,7 @@ func (s *Session) AuthPlain(username, pwd string) error {
 		return nil
 	}
 
-	log.WithContext(s.Ctx).Debugf("登陆错误%s %s", username, pwd)
+	log.WithContext(s.Ctx).Debugf("登陆错误%s", username)
 	return errors.New("password error")
 }
 

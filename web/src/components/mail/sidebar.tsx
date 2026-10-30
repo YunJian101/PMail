@@ -153,20 +153,6 @@ export function MailSidebar() {
           </NavLink>
         ) : null}
 
-        <NavLink
-          to="/mail/settings"
-          className={({ isActive }) =>
-            cn(
-              'flex h-[36px] items-center gap-2.5 rounded-sm px-2.5 text-[13.5px] font-[500] text-fg-muted',
-              'transition-colors hover:bg-surface-3 hover:text-fg',
-              isActive && 'bg-primary-soft text-primary',
-            )
-          }
-        >
-          <Settings className="h-[17px] w-[17px] text-fg-subtle" strokeWidth={1.7} />
-          {t('account.title')}
-        </NavLink>
-
         <div className="mt-1.5 flex items-center gap-1 rounded-md border border-border-base bg-surface-2 p-1.5">
           <Dropdown>
             <DropdownTrigger asChild>

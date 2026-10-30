@@ -37,10 +37,21 @@ func Login(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 
 	var user models.User
 
-	encodePwd := password.Encode(reqData.Password)
-	_, err = db.Instance.Where("account =? and password =? and disabled=0", reqData.Account, encodePwd).Get(&user)
+	// 分三步判断，才能区分「账号或密码错」与「账号被停用」：
+	// 以前把 disabled=0 混在查询条件里，停用账号和密码错长得一模一样，用户不知道发生了什么。
+	_, err = db.Instance.Where("account = ?", reqData.Account).Get(&user)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Errorf("%+v", err)
+	}
+
+	if user.ID == 0 || !password.Verify(reqData.Password, user.Password) {
+		response.NewErrorResponse(response.ParamsError, i18n.GetText(ctx.Lang, "aperror"), "").FPrint(w)
+		return
+	}
+
+	if user.Disabled == 1 {
+		response.NewErrorResponse(response.ParamsError, i18n.GetText(ctx.Lang, "account_disabled"), "").FPrint(w)
+		return
 	}
 
 	if user.ID != 0 {

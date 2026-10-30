@@ -15,8 +15,9 @@ import (
 //	PMAIL_PORT_POP3        默认 110
 //	PMAIL_PORT_POP3S       默认 995
 //
-// 飞牛 fpk 会把它们写进 ${TRIM_PKGVAR}/ports.env 再 source，Docker 部署用 compose 的
-// environment 传即可。Web 端口不在这里，仍然用 config.json 的 httpPort / httpsPort。
+// 飞牛的 fpk 生命周期脚本会把这些值写进 ${TRIM_PKGVAR}/ports.env 再 source 进来，
+// 也可以在飞牛「应用设置」或应用内「系统设置 → 邮件端口」里改。
+// Web 端口不在这里，走 config.json 的 httpPort。
 func Port(name string, def int) int {
 	raw := os.Getenv("PMAIL_PORT_" + name)
 	if raw == "" {

@@ -2,7 +2,7 @@ package version
 
 import "runtime"
 
-// 这几个变量由构建脚本用 -ldflags -X 注入（见 tools/build-fpk.ps1 与 Dockerfile）。
+// 这几个变量由构建脚本用 -ldflags -X 注入（见 tools/build-fpk.ps1）。
 // 放在这里而不是 main 包，是为了让 HTTP 层也能读到（/api/version）。
 var (
 	Version   string // 例如 2.0.4beta

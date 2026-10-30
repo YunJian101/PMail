@@ -164,6 +164,8 @@ function ConvertTo-ApiJson {
 function Invoke-Api {
     param([string]$Url, [hashtable]$Body = @{}, [int]$TimeoutSec = 30)
     $json = ConvertTo-ApiJson $Body
+    # 需要发原生 JSON（例如数字字段）时，用 @{ __raw = '{"id":1}' } 直接透传
+    if ($Body.ContainsKey('__raw')) { $json = [string]$Body['__raw'] }
     $text = ''
     $status = 0
     try {
@@ -289,6 +291,10 @@ try {
 
     $reload = Invoke-Api "$httpUrl/api/settings/reload_cert"
     Check 'reload refuses to overwrite a pasted certificate' ($reload.Json.errorNo -ne 0 -and $reload.Json.errorMsg) $reload.Text
+
+    # 管理员不能把自己停用（也不能把最后一个管理员停掉）
+    $selfDisable = Invoke-Api "$httpUrl/api/user/edit" @{ __raw = '{"id":1,"account":"admin","username":"admin","disabled":1}' }
+    Check 'admin cannot disable itself' ($selfDisable.Json.errorNo -ne 0) $selfDisable.Text
 
     # ---------- 11. on-disk result ----------
     $cfgAfter = Get-Content (Join-Path $root 'config\config.json') -Raw | ConvertFrom-Json

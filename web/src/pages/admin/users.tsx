@@ -363,13 +363,21 @@ export function UsersPage() {
                             <KeyRound className="h-4 w-4" />
                           </Button>
                         </Tooltip>
-                        <Tooltip label={user.Disabled === 1 ? t('common.enable') : t('common.disable')}>
+                        <Tooltip
+                          label={
+                            user.Account === sessionUser?.account
+                              ? t('admin.users.cannotDisableSelf')
+                              : user.Disabled === 1
+                                ? t('common.enable')
+                                : t('common.disable')
+                          }
+                        >
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             className={user.Disabled === 1 ? 'text-success' : 'text-fg-muted'}
                             onClick={() => toggleMutation.mutate(user)}
-                            disabled={toggleMutation.isPending}
+                            disabled={toggleMutation.isPending || user.Account === sessionUser?.account}
                             aria-label={user.Disabled === 1 ? t('common.enable') : t('common.disable')}
                           >
                             {user.Disabled === 1 ? (
@@ -485,11 +493,19 @@ export function UsersPage() {
             </div>
 
             <div className="mt-2 flex items-center justify-between rounded-sm border border-border-base px-3 py-2.5">
-              <span className="text-[13px] font-[550] text-fg">
-                {t('admin.users.form.disabled')}
-              </span>
+              <div className="min-w-0">
+                <span className="text-[13px] font-[550] text-fg">
+                  {t('admin.users.form.disabled')}
+                </span>
+                {editing?.Account === sessionUser?.account ? (
+                  <p className="mt-0.5 text-[11.5px] text-fg-subtle">
+                    {t('admin.users.cannotDisableSelf')}
+                  </p>
+                ) : null}
+              </div>
               <Switch
                 checked={form.disabled}
+                disabled={editing?.Account === sessionUser?.account}
                 onCheckedChange={(checked) => setForm({ ...form, disabled: checked })}
               />
             </div>

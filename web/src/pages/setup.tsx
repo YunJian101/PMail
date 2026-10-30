@@ -62,6 +62,25 @@ interface FinishResult {
   reason?: string
 }
 
+/** 邮箱域名不该带这些主机名前缀，系统会自己拼 smtp./imap./pop. */
+const MAIL_HOST_PREFIXES = ['smtp.', 'smtps.', 'submission.', 'imap.', 'pop.', 'pop3.', 'webmail.', 'mx.']
+
+function looksLikeHostName(value: string): boolean {
+  const domain = value.trim().toLowerCase()
+  return MAIL_HOST_PREFIXES.some((prefix) => domain.startsWith(prefix))
+}
+
+/** 把误填成 smtp.example.com 的邮箱域名还原成 example.com */
+function normalizeMailDomain(raw: string): string {
+  const domain = raw.trim().toLowerCase().replace(/\.$/, '')
+  for (const prefix of MAIL_HOST_PREFIXES) {
+    if (!domain.startsWith(prefix)) continue
+    const rest = domain.slice(prefix.length)
+    if (rest.includes('.')) return rest
+  }
+  return domain
+}
+
 function setupPost<T>(payload: Record<string, string>, timeout = 60_000) {
   return post<T>('/api/setup', payload, { timeout })
 }
@@ -365,13 +384,22 @@ export default function SetupPage() {
     setBusy(true)
     try {
       if (step === 0) {
+        // 邮箱域名统一去掉误填的 smtp./mail. 前缀；被改过就提示一下
+        const mailDomain = normalizeMailDomain(smtpDomain)
+        if (mailDomain !== smtpDomain.trim().toLowerCase()) {
+          setSmtpDomain(mailDomain)
+          toast.info(t('setup.domain.normalized'), mailDomain)
+        }
         await setupPost<unknown>({
           action: 'set',
           step: 'domain',
-          web_domain: webDomain.trim(),
-          smtp_domain: smtpDomain.trim(),
+          web_domain: webDomain.trim().toLowerCase(),
+          smtp_domain: mailDomain,
           // 提交时是逗号拼接的字符串，读回来是数组（后端同一字段两种形态）
-          multi_domain: extraDomains.map((item) => item.trim()).filter(Boolean).join(','),
+          multi_domain: extraDomains
+            .map((item) => normalizeMailDomain(item))
+            .filter(Boolean)
+            .join(','),
         })
         setStep(1)
         await loadDns()
@@ -471,7 +499,7 @@ export default function SetupPage() {
             {step === 0 ? (
               <>
                 <CardHead title={t('setup.domain.title')} desc={t('setup.domain.desc')} />
-                <Field label={t('setup.domain.web')}>
+                <Field label={t('setup.domain.web')} hint={t('setup.domain.webHint')}>
                   <Input
                     value={webDomain}
                     onChange={(event) => setWebDomain(event.target.value)}
@@ -480,7 +508,7 @@ export default function SetupPage() {
                     spellCheck={false}
                   />
                 </Field>
-                <Field label={t('setup.domain.smtp')}>
+                <Field label={t('setup.domain.smtp')} hint={looksLikeHostName(smtpDomain) ? t('setup.domain.prefixWarn') : t('setup.domain.smtpHint')}>
                   <Input
                     value={smtpDomain}
                     onChange={(event) => setSmtpDomain(event.target.value)}

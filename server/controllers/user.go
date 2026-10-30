@@ -161,6 +161,22 @@ func EditUser(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 	}
 
 	if reqData.Disabled != user.Disabled {
+		// 停用前的保护：不能停用自己，也不能把最后一个可用的管理员停掉
+		if reqData.Disabled == 1 {
+			if user.ID == ctx.UserID {
+				response.NewErrorResponse(response.ParamsError, "不能停用当前登录的账号", "").FPrint(w)
+				return
+			}
+			if user.IsAdmin == 1 {
+				activeAdmins, countErr := db.Instance.Where("is_admin = 1 and disabled = 0").Count(&models.User{})
+				if countErr != nil {
+					log.Errorf("Count active admins error: %+v", countErr)
+				} else if activeAdmins <= 1 {
+					response.NewErrorResponse(response.ParamsError, "至少要保留一个可用的管理员账号", "").FPrint(w)
+					return
+				}
+			}
+		}
 		user.Disabled = reqData.Disabled
 	}
 	if reqData.Password != "" {

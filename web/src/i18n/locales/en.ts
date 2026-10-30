@@ -230,6 +230,7 @@ const en: Dict = {
   'admin.users.form.isAdminUnsupported':
     'The current backend does not accept the admin flag on create/edit — set it on the server side.',
   'admin.users.form.disabled': 'Disable account',
+  'admin.users.cannotDisableSelf': 'You cannot disable the account you are signed in with',
 
   'admin.groups': 'Folders',
   'admin.groups.desc': 'Custom mail folders with nested hierarchy',
@@ -316,10 +317,14 @@ const en: Dict = {
     'This wizard walks you through the initial configuration. If you already have a config file, drop it into the config folder of the working directory instead.',
   'setup.domain.title': 'Set your domain',
   'setup.domain.desc': 'Tell PMail which domain it serves.',
-  'setup.domain.smtp': 'SMTP domain',
-  'setup.domain.web': 'Web domain',
+  'setup.domain.smtp': 'Mail domain (the part after @)',
+  'setup.domain.web': 'Web address',
   'setup.domain.multi': 'Multiple domains',
   'setup.domain.multiDesc': 'Bind this mailbox to additional domains',
+  'setup.domain.smtpHint': 'Main domain only, e.g. example.com; smtp./imap./pop. are added automatically',
+  'setup.domain.webHint': 'Address used in the browser, e.g. mail.example.com',
+  'setup.domain.prefixWarn': 'Enter the main domain only, without smtp./imap. (it is stripped on submit)',
+  'setup.domain.normalized': 'Host prefix removed, mail domain is now {message}',
   'setup.dns.title': 'Configure DNS records',
   'setup.dns.desc':
     'These records are computed locally — no network needed. Copy them into your DNS provider.',

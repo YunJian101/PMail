@@ -43,6 +43,10 @@ type Config struct {
 	TgBotToken           string            `json:"tgBotToken"`
 	TgChatId             string            `json:"tgChatId"`
 	IsInit               bool              `json:"isInit"`
+	// 证书来源：fnos=从飞牛加载（自动跟随续期）、upload=用户粘贴、空=未知/手动路径
+	SSLSource string `json:"sslSource,omitempty"`
+	// 是否自动跟随飞牛证书续期（仅 sslSource=fnos 时生效）
+	AutoSyncFnOsCert *bool `json:"autoSyncFnOsCert,omitempty"`
 	WebPushUrl           string            `json:"webPushUrl"`
 	WebPushToken         string            `json:"webPushToken"`
 	Tables               map[string]string `json:"-"`

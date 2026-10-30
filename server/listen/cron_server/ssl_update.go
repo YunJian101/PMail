@@ -31,6 +31,9 @@ func Start() {
 		go sslCheck()
 	}
 
+	// 从飞牛加载的证书：定时跟随飞牛续期（12 小时一次，内容变了才重启）
+	go fnosCertLoop()
+
 }
 
 // 每天检查一遍SSL证书是否更新，更新就重启

@@ -1,15 +1,20 @@
 package ssl
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Jinnrry/pmail/config"
+	log "github.com/sirupsen/logrus"
 )
 
 // CertInfo 是「证书已就位」之后回给前端的摘要
@@ -21,7 +26,32 @@ type CertInfo struct {
 	Message string `json:"message"`
 }
 
-const fnosCertRoot = "/usr/trim/var/trim_connect/ssls"
+// fnosCertRoot 是飞牛自己管证书的目录。做成变量是为了让测试能指到临时目录。
+var fnosCertRoot = "/usr/trim/var/trim_connect/ssls"
+
+// FnOsCertRootExists 判断飞牛证书目录在不在（cron 用它决定要不要跑同步）
+func FnOsCertRootExists() bool {
+	_, err := os.Stat(fnosCertRoot)
+	return err == nil
+}
+
+// CertSummary 读当前 config/ssl 里的证书，返回域名（CN）与到期时间。
+// 设置页的「证书状态」卡片用它；证书缺失或解析失败时返回 error。
+func CertSummary() (string, time.Time, error) {
+	cfg, err := config.ReadConfig()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	crtPEM, err := os.ReadFile(cfg.SSLPublicKeyPath)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	leaf, err := parseLeaf(crtPEM)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return leaf.Subject.CommonName, leaf.NotAfter, nil
+}
 
 // LoadFnOsCert 把飞牛自己管理的证书同步到 PMail 的 config/ssl 下。
 //
@@ -72,6 +102,103 @@ func SaveCertPEM(keyPEM, crtPEM []byte) CertInfo {
 	return installPEM(cfg, keyPEM, crtPEM, "upload")
 }
 
+// SyncFnOsCert 由 cron 调用：飞牛证书目录里有新证书就同步过来。
+// 返回 (本轮是否发生变更, 摘要)。内容没变时什么都不写、不触发重启。
+// SyncFnOsCert 由 cron / 设置页调用：飞牛证书目录里有新证书就同步过来。
+//
+// force=false（cron 自动跑）：只在 sslSource=fnos 时覆盖；sslSource 为空（老版本配置）
+// 时只在内容已经一致的情况下认领来源，绝不擅自覆盖来路不明的证书。
+// force=true（用户在设置页点「立即重新加载」）：明确要求以飞牛证书为准。
+//
+// 返回 (本轮是否发生变更, 摘要)。
+func SyncFnOsCert(force bool) (bool, CertInfo) {
+	return syncIfChanged(force)
+}
+
+// syncIfChanged 比较飞牛最新证书与本地 config/ssl 的内容，不同才覆盖。
+func syncIfChanged(force bool) (bool, CertInfo) {
+	cfg, err := config.ReadConfig()
+	if err != nil {
+		return false, CertInfo{Message: err.Error()}
+	}
+
+	source := strings.TrimSpace(cfg.SSLSource)
+	if source == "upload" && !force {
+		return false, CertInfo{Message: "当前证书是手动粘贴的，跳过自动同步"}
+	}
+
+	if _, err := os.Stat(fnosCertRoot); err != nil {
+		return false, CertInfo{Message: "读不到飞牛证书目录：" + fnosCertRoot}
+	}
+
+	dirs := collectCertDirs(fnosCertRoot, 3)
+	if len(dirs) == 0 {
+		return false, CertInfo{Message: "飞牛证书目录里还没有任何证书：" + fnosCertRoot}
+	}
+
+	// 找到飞牛侧最新的一对可用 PEM
+	for _, dir := range dirs {
+		for _, pair := range candidatePairs(dir) {
+			keyPEM, crtPEM := pair[0], pair[1]
+
+			localKey, errKey := os.ReadFile(cfg.SSLPrivateKeyPath)
+			localCrt, errCrt := os.ReadFile(cfg.SSLPublicKeyPath)
+			if errKey == nil && errCrt == nil &&
+				bytes.Equal(localKey, keyPEM) && bytes.Equal(localCrt, crtPEM) {
+				// 内容一致：顺便把老配置缺失的来源补上，下次续期就能自动跟
+				if source != "fnos" {
+					adoptFnOsSource(cfg)
+					log.Infof("local certificate matches fnOS, sslSource set to fnos (%s)", dir)
+				}
+				if leaf, err := parseLeaf(crtPEM); err == nil {
+					return false, CertInfo{
+						Found:  true,
+						Source: "fnos:" + dir,
+						Domain: leaf.Subject.CommonName,
+						Expire: leaf.NotAfter.Format("2006-01-02"),
+					}
+				}
+				return false, CertInfo{Found: true, Source: "fnos:" + dir}
+			}
+
+			// 内容不同。来源不明时不动手，避免把用户自己的证书顶掉
+			if source != "fnos" && !force {
+				return false, CertInfo{Message: "本地证书与飞牛证书不一致，且来源未知，已跳过（可在设置页手动重新加载）"}
+			}
+
+			if info := installPEM(cfg, keyPEM, crtPEM, "fnos:"+dir); info.Found {
+				log.Infof("fnos cert synced from %s: domain=%s expire=%s", dir, info.Domain, info.Expire)
+				return true, info
+			}
+		}
+	}
+	return false, CertInfo{Message: "飞牛证书目录里没有找到成对的私钥与证书"}
+}
+
+// adoptFnOsSource 把来源标成 fnos 并落盘（老版本配置升级兼容用）
+func adoptFnOsSource(cfg *config.Config) {
+	cfg.SSLSource = "fnos"
+	if err := config.WriteConfig(cfg); err != nil {
+		log.Warnf("failed to persist sslSource: %v", err)
+	}
+}
+
+// parseLeaf 解析证书 PEM 的第一张（叶子证书），只需要看域名和到期日
+func parseLeaf(crtPEM []byte) (*x509.Certificate, error) {
+	rest := crtPEM
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			return nil, errors.New("no certificate PEM block")
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		return x509.ParseCertificate(block.Bytes)
+	}
+}
+
 func installPEM(cfg *config.Config, keyPEM, crtPEM []byte, source string) CertInfo {
 	pair, err := tls.X509KeyPair(crtPEM, keyPEM)
 	if err != nil {
@@ -96,6 +223,11 @@ func installPEM(cfg *config.Config, keyPEM, crtPEM []byte, source string) CertIn
 	// 否则 sslType 还停在自动签发，主服务起来会又跑一遍 ACME 把证书覆盖掉。
 	cfg.SSLType = config.SSLTypeUser
 	cfg.HttpsEnabled = 2
+	if strings.HasPrefix(source, "fnos") {
+		cfg.SSLSource = "fnos"
+	} else if source == "upload" {
+		cfg.SSLSource = "upload"
+	}
 	if err := config.WriteConfig(cfg); err != nil {
 		return CertInfo{Message: "证书已写入，但更新配置失败：" + err.Error()}
 	}
@@ -108,10 +240,14 @@ func installPEM(cfg *config.Config, keyPEM, crtPEM []byte, source string) CertIn
 	}
 }
 
-// collectCertDirs 收集 root 下 1~maxDepth 层的目录，按修改时间倒序（新的在前）
+// collectCertDirs 收集 root 下 1~maxDepth 层的目录，按「新」到「旧」排序。
+//
+// 飞牛的续期目录名就是时间戳，所以先比 mtime，mtime 相同（同一秒内建的、
+// 或文件系统精度不够）再按目录名倒序兜底，避免顺序不稳定导致同步挑到旧证书。
 func collectCertDirs(root string, maxDepth int) []string {
 	type entry struct {
 		dir   string
+		name  string
 		mtime int64
 	}
 	var found []entry
@@ -135,13 +271,18 @@ func collectCertDirs(root string, maxDepth int) []string {
 			if err == nil {
 				mtime = info.ModTime().Unix()
 			}
-			found = append(found, entry{dir: full, mtime: mtime})
+			found = append(found, entry{dir: full, name: item.Name(), mtime: mtime})
 			walk(full, depth+1)
 		}
 	}
 	walk(root, 1)
 
-	sort.Slice(found, func(i, j int) bool { return found[i].mtime > found[j].mtime })
+	sort.Slice(found, func(i, j int) bool {
+		if found[i].mtime != found[j].mtime {
+			return found[i].mtime > found[j].mtime
+		}
+		return found[i].name > found[j].name
+	})
 	dirs := make([]string, 0, len(found))
 	for _, item := range found {
 		dirs = append(dirs, item.dir)

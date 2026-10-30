@@ -238,7 +238,7 @@ export function InboxPage() {
   }
 
   const readMutation = useMutation({
-    mutationFn: (ids: number[]) => markMailRead(ids),
+    mutationFn: (payload: { ids: number[]; isRead?: boolean }) => markMailRead(payload.ids, payload.isRead ?? true),
     onSuccess: invalidate,
     onError: (error) => toast.error(errorText(error)),
   })
@@ -296,6 +296,13 @@ export function InboxPage() {
   })
   const folderUnread = unreadQuery.data?.[folder] ?? 0
 
+  // 后端可能把 is_read 返回成 0/1 或 true/false，这里统一成布尔
+  const detailIsUnread = React.useMemo(() => {
+    const value = detailQuery.data?.is_read as unknown as number | boolean | undefined
+    if (value === undefined) return false
+    return !value
+  }, [detailQuery.data?.is_read])
+
   return (
     <div className="grid h-full min-w-0 grid-cols-1 gap-2.5 overflow-hidden md:grid-cols-[340px_1fr] xl:grid-cols-[396px_1fr]">
       {/* ---------------- 列表 ---------------- */}
@@ -335,7 +342,7 @@ export function InboxPage() {
                 </DropdownTrigger>
                 <DropdownContent>
                   <DropdownItem
-                    onSelect={() => readMutation.mutate(mails.filter((m) => !m.is_read).map((m) => m.id))}
+                    onSelect={() => readMutation.mutate({ ids: mails.filter((m) => !m.is_read).map((m) => m.id) })}
                   >
                     <MailOpen className="h-3.5 w-3.5" />
                     {t('mail.action.markRead')}
@@ -383,7 +390,7 @@ export function InboxPage() {
             </span>
             <div className="ml-auto flex items-center gap-1">
               <Tooltip label={t('mail.action.markRead')}>
-                <Button variant="ghost" size="icon-sm" onClick={() => readMutation.mutate(selection)}>
+                <Button variant="ghost" size="icon-sm" onClick={() => readMutation.mutate({ ids: selection })}>
                   <MailOpen className="h-4 w-4" />
                 </Button>
               </Tooltip>
@@ -502,7 +509,12 @@ export function InboxPage() {
           if (!selectedId) return
           moveMutation.mutate({ ids: [selectedId], groupId })
         }}
-        onToggleRead={() => selectedId && readMutation.mutate([selectedId])}
+        isUnread={detailIsUnread}
+        onToggleRead={() => {
+          if (!selectedId) return
+          // 已读 -> 标为未读；未读 -> 标为已读
+          readMutation.mutate({ ids: [selectedId], isRead: detailIsUnread })
+        }}
         onBack={() => setSearchParams({}, { replace: true })}
         />
       </div>

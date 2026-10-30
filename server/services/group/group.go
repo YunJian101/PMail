@@ -282,16 +282,22 @@ func getGroupNum(ctx *context.Context, groupName string, mustUnread bool) int {
 	var count int
 	switch groupName {
 	case "INBOX":
+		// 收件箱 = 收到且还在默认位置(0)或 INBOX；移到自定义分组后不该再算进来
 		if mustUnread {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=0 and is_read=0", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=0 and is_read=0 and (group_id=? or group_id=0)", ctx.UserID, models.INBOX).Get(&count)
 		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=0", ctx.UserID).Get(&count)
+			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=0 and (group_id=? or group_id=0)", ctx.UserID, models.INBOX).Get(&count)
 		}
 	case "Sent Messages":
 		if mustUnread {
 			count = 0
 		} else {
-			db.Instance.Table("user_email").Select("count(1)").Where("user_id=? and status=1", ctx.UserID).Get(&count)
+			// 与网页端口径一致：发出且没被移走的才算发件箱
+			db.Instance.SQL(
+				"select count(1) from user_email ue left join email e on e.id=ue.email_id "+
+					"where ue.user_id=? and ue.status=1 and (ue.group_id=? or (e.type=1 and (ue.group_id=0 or ue.group_id=?)))",
+				ctx.UserID, models.Sent, models.Sent,
+			).Get(&count)
 		}
 	case "Drafts":
 		if mustUnread {

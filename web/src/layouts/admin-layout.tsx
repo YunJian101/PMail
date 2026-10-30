@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   Filter,
   Folder,
+  Inbox,
+  LogOut,
   Moon,
   Settings,
   Sun,
@@ -16,6 +18,13 @@ import { useTheme } from '@/theme/theme-provider'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+  DropdownTrigger,
+} from '@/components/ui/dropdown'
 
 const NAV_ITEMS = [
   { to: '/admin/users', label: 'admin.users', icon: Users },
@@ -33,6 +42,7 @@ export default function AdminLayout() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useSession((state) => state.user)
+  const signOut = useSession((state) => state.signOut)
   const { resolved, toggle } = useTheme()
 
   return (
@@ -96,15 +106,44 @@ export default function AdminLayout() {
         </nav>
 
         <div className="mt-2 flex items-center gap-1 rounded-md border border-border-base bg-surface-2 p-1.5">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1">
-            <Avatar name={user?.name} email={user?.account} size={30} />
-            <div className="min-w-0">
-              <div className="truncate text-[13px] font-[620]">{user?.name || user?.account}</div>
-              <div className="truncate text-[11.5px] text-fg-subtle">
-                {user?.is_admin ? t('admin.users.roleAdmin') : t('admin.users.roleUser')}
+          {/* 和邮件页一致：点头像/名字弹出账号菜单，管理页也能退出登录 */}
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <button className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm p-0.5 text-left transition-colors hover:bg-surface-3">
+                <Avatar name={user?.name} email={user?.account} size={30} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-[620]">{user?.name || user?.account}</span>
+                  <span className="block truncate text-[11.5px] text-fg-subtle">{user?.account}</span>
+                </span>
+              </button>
+            </DropdownTrigger>
+            <DropdownContent align="start" side="top" className="min-w-[220px]">
+              <div className="px-2 py-1.5">
+                <div className="text-[13px] font-[600]">{user?.name || user?.account}</div>
+                <div className="text-[11.5px] text-fg-subtle">{user?.account}</div>
               </div>
-            </div>
-          </div>
+              <DropdownSeparator />
+              <DropdownItem onSelect={() => navigate('/mail/inbox')}>
+                <Inbox className="h-3.5 w-3.5" />
+                {t('nav.mailbox')}
+              </DropdownItem>
+              <DropdownItem onSelect={() => navigate('/mail/settings')}>
+                <Settings className="h-3.5 w-3.5" />
+                {t('account.title')}
+              </DropdownItem>
+              <DropdownSeparator />
+              <DropdownItem
+                danger
+                onSelect={async () => {
+                  await signOut()
+                  navigate('/login', { replace: true })
+                }}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                {t('common.logout')}
+              </DropdownItem>
+            </DropdownContent>
+          </Dropdown>
           <Tooltip label={t('common.theme')}>
             <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label={t('common.theme')}>
               {resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

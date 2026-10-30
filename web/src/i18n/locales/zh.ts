@@ -66,6 +66,7 @@ const zh = {
   'common.required': '必填',
   'common.unit.count': '封',
   'nav.settings': '设置',
+  'nav.mailbox': '返回邮箱',
   'nav.admin': '管理',
 
   // ---------- 品牌 / 登录 ----------

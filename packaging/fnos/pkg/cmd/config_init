@@ -1,5 +1,22 @@
 #!/bin/bash
 # 配置页打开前：把当前端口回显出去（fnOS 会把这里的输出展示给用户）
 ENV_FILE="${TRIM_PKGVAR}/ports.env"
-[ -r "${ENV_FILE}" ] && cat "${ENV_FILE}"
+
+cat <<'TIP'
+# 邮件端口配置：每行一个「名称=端口」，改完保存即可自动重启生效。
+# 网页端口在安装向导或系统设置里改，不在这里。
+TIP
+
+if [ -r "${ENV_FILE}" ]; then
+    cat "${ENV_FILE}"
+else
+    cat <<'DEFAULT'
+PMAIL_PORT_SMTP=25
+PMAIL_PORT_SMTPS=465
+PMAIL_PORT_SUBMISSION=587
+PMAIL_PORT_IMAP=993
+PMAIL_PORT_POP3=110
+PMAIL_PORT_POP3S=995
+DEFAULT
+fi
 exit 0

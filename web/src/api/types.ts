@@ -59,6 +59,7 @@ export interface MailAttachmentMeta {
 export interface MailDetail {
   id: number
   type: number
+  is_read?: boolean
   subject: string
   reply_to: string
   from_name: string

@@ -32,8 +32,9 @@ export function getMailDetail(id: number) {
   return post<MailDetail>('/api/email/detail', { id })
 }
 
-export function markMailRead(ids: number[]) {
-  return post<string>('/api/email/read', { ids })
+/** isRead=false 就是标为未读 */
+export function markMailRead(ids: number[], isRead = true) {
+  return post<string>('/api/email/read', { ids, is_read: isRead ? 1 : 0 })
 }
 
 /**

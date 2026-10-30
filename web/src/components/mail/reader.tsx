@@ -82,6 +82,8 @@ export interface ReaderProps {
   moveTargets: { label: string; groupId: number }[]
   onMove: (groupId: number) => void
   onToggleRead?: () => void
+  /** 当前这封是否未读：决定按钮是「标为已读」还是「标为未读」 */
+  isUnread?: boolean
   /** 窄屏下从阅读区返回列表 */
   onBack?: () => void
 }
@@ -97,6 +99,7 @@ export function MailReader({
   moveTargets,
   onMove,
   onToggleRead,
+  isUnread = false,
   onBack,
 }: ReaderProps) {
   const { t } = useTranslation()
@@ -198,9 +201,13 @@ export function MailReader({
             ))}
           </DropdownContent>
         </Dropdown>
-        <Tooltip label={t('mail.action.markUnread')}>
+        <Tooltip label={isUnread ? t('mail.action.markRead') : t('mail.action.markUnread')}>
           <Button variant="ghost" size="icon" onClick={onToggleRead}>
-            <Mail className="h-[18px] w-[18px]" />
+            {isUnread ? (
+              <MailOpen className="h-[18px] w-[18px]" />
+            ) : (
+              <Mail className="h-[18px] w-[18px]" />
+            )}
           </Button>
         </Tooltip>
         <div className="mx-1.5 h-[18px] w-px bg-border-base" />

@@ -74,8 +74,11 @@ func genSQL(ctx *context.Context, count bool, tagInfo dto.SearchTag, keyword str
 		sql += " and type =? "
 		sqlParams = append(sqlParams, tagInfo.Type)
 	} else if tagInfo.Type == consts.EmailTypeSend {
-		sql += " and (type =? or ue.group_id=?)"
-		sqlParams = append(sqlParams, tagInfo.Type, models.Sent)
+		// 发件箱里的邮件 = 「发出且还没被移走」。
+		// 以前只判断 email.type=1，而移动邮件只改 user_email.group_id，
+		// 结果移到广告箱/自定义分组之后，发件箱里还会再显示一份。
+		sql += " and (ue.group_id = ? or (type = ? and (ue.group_id = 0 or ue.group_id = ?)))"
+		sqlParams = append(sqlParams, models.Sent, tagInfo.Type, models.Sent)
 	}
 
 	if tagInfo.GroupId != -1 {

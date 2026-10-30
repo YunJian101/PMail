@@ -282,6 +282,14 @@ try {
     $group = Invoke-Api "$httpUrl/api/group"
     Check 'folder list works' ($group.Json.errorNo -eq 0) $group.Text
 
+    # ---------- 10b. settings: certificate status + reload policy ----------
+    $sslInfo = Invoke-Api "$httpUrl/api/settings/ssl_info"
+    Check 'settings ssl_info returns cert status' ($sslInfo.Json.errorNo -eq 0 -and $sslInfo.Json.data.domain -eq 'mail.e2e.test' -and $sslInfo.Json.data.expire) $sslInfo.Text
+    Check 'ssl_info reports pasted source' ($sslInfo.Json.data.source -eq 'upload') $sslInfo.Text
+
+    $reload = Invoke-Api "$httpUrl/api/settings/reload_cert"
+    Check 'reload refuses to overwrite a pasted certificate' ($reload.Json.errorNo -ne 0 -and $reload.Json.errorMsg) $reload.Text
+
     # ---------- 11. on-disk result ----------
     $cfgAfter = Get-Content (Join-Path $root 'config\config.json') -Raw | ConvertFrom-Json
     Check 'config.json marked as installed' ($cfgAfter.isInit -eq $true)

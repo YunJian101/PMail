@@ -269,6 +269,18 @@ const server = http.createServer(async (req, res) => {
   if (path === '/api/rule/del') return send(res, 'succ')
   if (path === '/api/plugin/list') return send(res, ['wechat_push', 'spam_block'])
   if (path === '/api/settings/modify_password') return send(res, 'Succ')
+  if (path === '/api/settings/ssl_info')
+    return send(res, {
+      domain: '*.example.dev',
+      expire: '2027-01-27',
+      daysLeft: 454,
+      source: 'fnos',
+      autoSync: true,
+      lastSync: '2026-10-30 03:30',
+      fnosRootOk: true,
+    })
+  if (path === '/api/settings/reload_cert')
+    return send(res, { changed: false, domain: '*.example.dev', expire: '2027-01-27' })
 
   res.writeHead(200, { 'Content-Type': 'application/json;charset=utf-8' })
   res.end(JSON.stringify({ errorNo: 0, errorMsg: '', data: null }))

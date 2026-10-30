@@ -191,7 +191,11 @@
     height: auto;
     border-radius: 8px;
   }
-  .mail-body blockquote {
+  .mail-body-quote-collapsed blockquote {
+  display: none;
+}
+
+.mail-body blockquote {
     margin: 0 0 14px;
     padding-left: 14px;
     border-left: 2px solid var(--border);

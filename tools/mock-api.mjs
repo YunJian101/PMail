@@ -112,6 +112,20 @@ const detailHtml = `
 </div>
 `
 
+// 带引用历史的回信（用于预览「引用折叠」效果）
+const quotedHtml = `
+  <div>
+    <p>好的，我这边确认了，就按这个方案走。</p>
+    <p>另外把上周的时间节点也贴一下，方便你对照。</p>
+    <blockquote>
+      <p>在 2026-10-26 09:12，Lin Wei &lt;lin.wei@example.com&gt; 写道：</p>
+      <p>域名迁移这块我整理了三步：先加 SPF，再切 MX，最后改 DKIM。MX 生效前旧邮件服务器要保持可读，至少留 48 小时。</p>
+      <p>SPF 记得把新 IP 也加进去，不然投递会被判软失败。TXT 记录不要超过 10 次 DNS 查询，超了部分服务商直接判 fail。</p>
+    </blockquote>
+    <p>我下午把变更单发你。</p>
+  </div>
+  `
+
 const detail = {
   id: 100,
   type: 0,
@@ -253,7 +267,9 @@ const server = http.createServer(async (req, res) => {
   if (path === '/api/email/detail') {
     const id = Number(body.id)
     const found = mails.find((mail) => mail.id === id)
-    return send(res, { ...detail, id, subject: found ? found.title : detail.subject })
+    const payload = { ...detail, id, subject: found ? found.title : detail.subject }
+  if (id === 2) payload.html = quotedHtml
+  return send(res, payload)
   }
   if (path === '/api/email/read') return send(res, 'success')
   if (path === '/api/email/del') return send(res, 'success')

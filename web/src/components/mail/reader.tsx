@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   ArrowLeft,
+  ChevronDown,
   Download,
   FileSpreadsheet,
   FileText,
@@ -12,6 +13,7 @@ import {
   Mail,
   MailOpen,
   Paperclip,
+  Quote,
   Reply,
   ReplyAll,
   Trash2,
@@ -112,6 +114,10 @@ export function MailReader({
 
   const html = React.useMemo(() => (mail ? sanitizeMailHtml(mail.html, mail.id) : ''), [mail])
   const bodyRef = React.useRef<HTMLDivElement | null>(null)
+
+  // 回复里带出来的历史引用默认折叠，避免一屏全是旧内容
+  const hasQuote = React.useMemo(() => /<blockquote[\s>]/i.test(html), [html])
+  const [showQuoted, setShowQuoted] = React.useState(false)
 
   // 纯文本正文按段落渲染，避免整段挤成一坨
   const textParagraphs = React.useMemo(() => {
@@ -280,12 +286,44 @@ export function MailReader({
           <hr className="mb-5 border-0 border-t border-border-base/70" />
 
           {html ? (
-            <div
-              ref={bodyRef}
-              className="mail-body"
-              // 已在 sanitizeMailHtml 里剔除脚本、事件属性与 javascript: 协议
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+            <>
+              <div
+                ref={bodyRef}
+                className={cn('mail-body', hasQuote && !showQuoted && 'mail-body-quote-collapsed')}
+                // 已在 sanitizeMailHtml 里剔除脚本、事件属性与 javascript: 协议
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+
+              {/* 引用默认折叠；展开入口放在正文下方，符合「先读新的，再看历史」 */}
+              {hasQuote ? (
+                <button
+                  type="button"
+                  onClick={() => setShowQuoted((prev) => !prev)}
+                  className="mt-4 flex w-full items-center gap-3 rounded-md border border-border-base bg-surface-2 px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-surface-3"
+                >
+                  <span className="grid h-8 w-8 flex-none place-items-center rounded-sm bg-surface-3 text-fg-subtle">
+                    <Quote className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-[600] text-fg">
+                      {t('mail.detail.quotedHistory', {
+                        name: displayName || from?.email || '',
+                        when: formatDateTime(mail?.send_date || mail?.create_time || ''),
+                      })}
+                    </span>
+                    <span className="mt-0.5 block text-[11.5px] text-fg-subtle">
+                      {showQuoted ? t('mail.detail.hideQuoted') : t('mail.detail.showQuoted')}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 flex-none text-fg-subtle transition-transform',
+                      showQuoted && 'rotate-180',
+                    )}
+                  />
+                </button>
+              ) : null}
+            </>
           ) : (
             <div className="mail-body">
               {textParagraphs.length > 0 ? (

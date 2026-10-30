@@ -24,7 +24,8 @@ import {
 import { fileToDataUrl, sendMail } from '@/api/mail'
 import type { SendMailAttachment, SendMailUser } from '@/api/types'
 import { cn } from '@/lib/utils'
-import { formatBytes, parseAddress, parseAddressList } from '@/lib/format'
+import { formatBytes, formatDateTime, parseAddress, parseAddressList } from '@/lib/format'
+import { sanitizeMailHtml } from '@/lib/sanitize'
 import { toast, errorText } from '@/lib/toast'
 import { useCompose } from '@/store/compose'
 import { useSession } from '@/store/session'
@@ -127,14 +128,24 @@ export function Composer() {
 
   const initialContent = React.useMemo(() => {
     if (!source) return '<p></p>'
-    const quotedText = source.text || ''
-    const header = `<p>${t('compose.originalMessage')} — ${source.from_name || source.from_address} · ${source.send_date}</p>`
-    if (!quotedText) return '<p></p>'
-    const quoted = quotedText
-      .split('\n')
-      .map((line) => (line.trim() ? `<p>${line}</p>` : '<p></p>'))
-      .join('')
-    return `<p></p><blockquote>${header}${quoted}</blockquote>`
+
+    const when = source.send_date ? formatDateTime(source.send_date) : ''
+    const who = source.from_name
+      ? `${source.from_name} <${source.from_address}>`
+      : source.from_address
+    const header = `<p>${t('compose.quoteHeader', { when, who })}</p>`
+
+    // 优先保留原文的 HTML 排版；没有 HTML 才退回纯文本逐行
+    const html = (source.html || '').trim()
+    const body = html
+      ? sanitizeMailHtml(html, source.id)
+      : (source.text || '')
+          .split('\n')
+          .map((line) => (line.trim() ? `<p>${line}</p>` : '<p></p>'))
+          .join('')
+
+    if (!body.trim()) return '<p></p>'
+    return `<p></p><blockquote>${header}${body}</blockquote>`
   }, [source, t])
 
   const editor = useEditor(

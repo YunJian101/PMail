@@ -278,7 +278,9 @@ export function Composer() {
   return (
     <div
       className="fixed inset-0 z-40 grid place-items-center bg-[rgba(9,14,26,.5)] p-6 backdrop-blur-[3px]"
-      onClick={(event) => {
+      onMouseDown={(event) => {
+        // 用 mousedown 而不是 click：拖选文本时按下点在面板内、松开点在遮罩上，
+        // click 的目标会变成两者的最近公共祖先（也就是遮罩），会把写信窗口误关掉。
         if (event.target === event.currentTarget) close()
       }}
     >
@@ -405,9 +407,20 @@ export function Composer() {
               icon: <LinkIcon className="h-4 w-4" />,
               active: editor?.isActive('link'),
               action: () => {
+                // 光标已在链接里：再点一次就是取消链接
+                if (editor?.isActive('link')) {
+                  editor.chain().focus().unsetLink().run()
+                  return
+                }
                 const url = window.prompt(t('compose.linkPrompt'), 'https://')
-                if (!url) return
-                editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+                if (url === null) return
+                const trimmed = url.trim()
+                // 输入框留空（或没改默认值）也视为取消
+                if (!trimmed || trimmed === 'https://') {
+                  editor?.chain().focus().unsetLink().run()
+                  return
+                }
+                editor?.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run()
               },
               label: t('compose.tool.link'),
             },
@@ -425,16 +438,6 @@ export function Composer() {
               </button>
             </Tooltip>
           ))}
-          <div className="mx-1.5 h-4 w-px bg-border-base" />
-          <Tooltip label={t('compose.attach')}>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="grid h-7 w-[30px] place-items-center rounded-xs hover:bg-surface-3 hover:text-fg"
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
-          </Tooltip>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -488,11 +491,6 @@ export function Composer() {
               </span>
             ) : null}
           </Button>
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" onClick={close}>
-              {t('compose.discard')}
-            </Button>
-          </div>
           <input
             ref={fileRef}
             type="file"

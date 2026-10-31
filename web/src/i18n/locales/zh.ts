@@ -196,6 +196,7 @@ const zh = {
   'compose.discardConfirm': '确定丢弃这封草稿吗？',
   'compose.leaveConfirm': '邮件还没发送，确定关闭吗？',
   'compose.attachmentTooLarge': '附件超过大小限制',
+  'compose.attachmentFailed': '附件读取失败',
   'compose.removeAttachment': '移除附件',
   'compose.originalMessage': '原始邮件',
   'compose.tool.bold': '加粗',

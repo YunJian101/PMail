@@ -34,8 +34,11 @@ function BootScreen() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const status = useSession((state) => state.status)
+  const user = useSession((state) => state.user)
   const location = useLocation()
-  if (status === 'loading' || status === 'idle') return <BootScreen />
+  // 已经有用户信息时不要因为一次静默刷新就卸载页面：
+  // 卸载会连带销毁写信浮层，正在写的内容就丢了。
+  if (!user && (status === 'loading' || status === 'idle')) return <BootScreen />
   if (status === 'anonymous') {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
   }

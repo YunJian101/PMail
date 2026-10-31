@@ -192,6 +192,7 @@ const en: Dict = {
   'compose.errNoSubject': 'Add a subject',
   'compose.discardConfirm': 'Discard this draft?',
   'compose.leaveConfirm': 'This message has not been sent. Close anyway?',
+  'compose.attachmentFailed': 'Failed to read attachment',
   'compose.attachmentTooLarge': 'Attachment is too large',
   'compose.removeAttachment': 'Remove attachment',
   'compose.originalMessage': 'Original message',

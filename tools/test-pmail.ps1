@@ -322,6 +322,15 @@ try {
     $unread = Invoke-Api "$httpUrl/api/email/unread"
     Check 'unread counts endpoint works' ($unread.Json.errorNo -eq 0 -and $null -ne $unread.Json.data.inbox) $unread.Text
 
+    # ---------- 10c2b. send with attachment (reply/compose path) ----------
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('hello attachment'))
+    $attPayload = '{"from":{"name":"Admin","email":"admin@e2e.test"},' +
+        '"to":[{"name":"","email":"admin@e2e.test"}],' +
+        '"subject":"attachment e2e","text":"hi","html":"<p>hi</p>",' +
+        '"attrs":[{"name":"a.txt","data":"data:text/plain;base64,' + $b64 + '"}]}'
+    $sendAtt = Invoke-Api "$httpUrl/api/email/send" @{ __raw = $attPayload }
+    Check 'send with attachment succeeds' ($sendAtt.Json.errorNo -eq 0) $sendAtt.Text
+
     # ---------- 10c3. mail port status (ports never kill the process) ----------
     $ports = Invoke-Api "$httpUrl/api/settings/mail_ports"
     Check 'mail port status endpoint works' ($ports.Json.errorNo -eq 0 -and $null -ne $ports.Json.data.webPort) $ports.Text

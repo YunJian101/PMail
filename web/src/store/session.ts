@@ -41,14 +41,29 @@ export const useSession = create<SessionState>((set, get) => ({
   async load(force = false) {
     const current = get()
     if (!force && current.status !== 'idle') return current.user
-    set({ status: 'loading' })
+
+    // 已经登录时做「静默刷新」：不能把 status 切回 loading，
+    // 否则 RequireAuth 会整棵邮件布局卸载，正在写的信（收件人/正文/附件）会被清空。
+    const silent = current.status === 'authenticated'
+    if (!silent) set({ status: 'loading' })
+
     try {
       const raw = (await fetchSession()) as unknown as RawSessionUser
       const user = normalize(raw)
       set({ user, status: 'authenticated', needsSetup: false, lastError: null })
       return user
     } catch (error) {
-      const needsSetup = error instanceof ApiError && error.code === 402
+      const code = error instanceof ApiError ? error.code : 0
+      const needsSetup = code === 402
+      const kicked = code === 402 || code === 403
+
+      // 静默刷新时，只有「真的被踢下线 / 未安装」才降级；
+      // 网络抖动就保持原状态，别把用户丢到登录页。
+      if (silent && !kicked) {
+        set({ lastError: (error as Error)?.message ?? null })
+        return current.user
+      }
+
       set({
         user: null,
         status: 'anonymous',

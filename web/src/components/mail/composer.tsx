@@ -253,13 +253,18 @@ export function Composer() {
         toast.error(t('compose.attachmentTooLarge'), file.name)
         continue
       }
-      const data = await fileToDataUrl(file)
-      next.push({
-        id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
-        name: file.name,
-        size: file.size,
-        data,
-      })
+      try {
+        const data = await fileToDataUrl(file)
+        next.push({
+          id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          size: file.size,
+          data,
+        })
+      } catch (error) {
+        // 读文件失败以前是静默丢弃，用户以为加上了其实没有
+        toast.error(t('compose.attachmentFailed'), `${file.name}${errorText(error) ? ` · ${errorText(error)}` : ''}`)
+      }
     }
     setAttachments((prev) => [...prev, ...next])
     if (fileRef.current) fileRef.current.value = ''
@@ -434,29 +439,31 @@ export function Composer() {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <EditorContent editor={editor} />
-          {attachments.length > 0 ? (
-            <div className="flex flex-wrap gap-2 px-5 pb-4">
-              {attachments.map((item) => (
-                <span
-                  key={item.id}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border-base bg-surface-2 px-2.5 py-1.5 text-[12px]"
-                >
-                  <Paperclip className="h-3.5 w-3.5 text-fg-subtle" />
-                  <span className="max-w-[220px] truncate font-[550]">{item.name}</span>
-                  <span className="text-[11px] text-fg-subtle">{formatBytes(item.size)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setAttachments((prev) => prev.filter((row) => row.id !== item.id))}
-                    className="grid h-4 w-4 place-items-center rounded text-fg-subtle hover:bg-surface-3 hover:text-danger"
-                    aria-label={t('compose.removeAttachment')}
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
+
+        {/* 附件条固定在正文与发送栏之间，不跟正文一起滚动，加多少都看得见 */}
+        {attachments.length > 0 ? (
+          <div className="flex max-h-[110px] flex-wrap gap-2 overflow-y-auto border-t border-border-base bg-surface px-4 py-2.5">
+            {attachments.map((item) => (
+              <span
+                key={item.id}
+                className="inline-flex items-center gap-2 rounded-lg border border-border-base bg-surface-2 px-2.5 py-1.5 text-[12px]"
+              >
+                <Paperclip className="h-3.5 w-3.5 text-fg-subtle" />
+                <span className="max-w-[220px] truncate font-[550]">{item.name}</span>
+                <span className="text-[11px] text-fg-subtle">{formatBytes(item.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => setAttachments((prev) => prev.filter((row) => row.id !== item.id))}
+                  className="grid h-4 w-4 place-items-center rounded text-fg-subtle hover:bg-surface-3 hover:text-danger"
+                  aria-label={t('compose.removeAttachment')}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <div className="flex items-center gap-2 border-t border-border-base bg-surface-2 px-4 py-3">
           <Button
@@ -467,8 +474,19 @@ export function Composer() {
             <Send className="h-4 w-4" />
             {sendMutation.isPending ? t('compose.sending') : t('compose.send')}
           </Button>
-          <Button variant="secondary" size="icon" onClick={() => fileRef.current?.click()} aria-label={t('compose.attach')}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => fileRef.current?.click()}
+            aria-label={t('compose.attach')}
+            className="relative"
+          >
             <Paperclip className="h-4 w-4" />
+            {attachments.length > 0 ? (
+              <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-[700] leading-none text-primary-fg">
+                {attachments.length}
+              </span>
+            ) : null}
           </Button>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" onClick={close}>

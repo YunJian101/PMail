@@ -166,14 +166,12 @@ func resolveIncomingUsers(ctx *context.Context, email *parsemail.Email, emailTyp
 		return nil, true, nil
 	}
 
-	log.WithContext(ctx).Infof("收件人不存在但DKIM验证通过，转交管理员: %s -> %v", email.From.EmailAddress, accounts)
-	if err := db.Instance.Table(&models.User{}).Where("is_admin=1").Find(&users); err != nil {
-		return nil, false, err
-	}
-	if len(users) == 0 {
-		return nil, false, stderrors.New("no administrator available for unknown recipient")
-	}
-	return users, false, nil
+	// 本地没有这个收件人：直接丢弃。
+	// 以前这里会「转交管理员」，结果任何人往「随便写@本域」发信都会灌进管理员信箱；
+	// 现在既不转交、也不退信（退信会造成 backscatter：被人拿伪造发件人利用来骚扰第三方，
+	// 还会损害本域名的发信信誉），同时对发件人保持 250，避免暴露账号是否存在。
+	log.WithContext(ctx).Infof("收件人不存在，丢弃邮件: from=%s to=%v", email.From.EmailAddress, accounts)
+	return nil, true, nil
 }
 
 func incomingAccounts(email *parsemail.Email, reallyTo []string) []string {

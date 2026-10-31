@@ -1,5 +1,5 @@
 appname               = pmail
-version               = 2.0.20beta
+version               = 2.0.21beta
 display_name          = PMail
 desc                  = 自建域名邮箱，支持 SMTP/IMAP/POP3 与网页收发信。默认占用 25/465/587/993/110/995 与 8080 端口；若端口冲突，可在本应用的「设置」里修改端口后重启。
 platform              = x86

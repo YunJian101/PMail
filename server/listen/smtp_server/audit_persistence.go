@@ -143,9 +143,27 @@ func resolveIncomingUsers(ctx *context.Context, email *parsemail.Email, emailTyp
 	}
 
 	accounts := incomingAccounts(email, reallyTo)
+
+	// account 有两种历史形态：纯账号（user）和完整地址（user@example.com，安装向导写进去的）。
+	// 两种都要能匹配上，否则收信时永远找不到人。
+	candidates := make([]string, 0, len(accounts)*3)
+	for _, account := range accounts {
+		candidates = append(candidates, account)
+		domains := append([]string{}, config.Instance.Domains...)
+		if config.Instance.Domain != "" {
+			domains = append(domains, config.Instance.Domain)
+		}
+		for _, domain := range domains {
+			domain = strings.ToLower(strings.TrimSpace(domain))
+			if domain != "" {
+				candidates = append(candidates, account+"@"+domain)
+			}
+		}
+	}
+
 	var users []*models.User
-	if len(accounts) > 0 {
-		where, params, err := builder.ToSQL(builder.In("LOWER(account)", accounts))
+	if len(candidates) > 0 {
+		where, params, err := builder.ToSQL(builder.In("LOWER(account)", candidates))
 		if err != nil {
 			return nil, false, err
 		}
@@ -166,12 +184,21 @@ func resolveIncomingUsers(ctx *context.Context, email *parsemail.Email, emailTyp
 		return nil, true, nil
 	}
 
-	// 本地没有这个收件人：直接丢弃。
-	// 以前这里会「转交管理员」，结果任何人往「随便写@本域」发信都会灌进管理员信箱；
-	// 现在既不转交、也不退信（退信会造成 backscatter：被人拿伪造发件人利用来骚扰第三方，
-	// 还会损害本域名的发信信誉），同时对发件人保持 250，避免暴露账号是否存在。
-	log.WithContext(ctx).Infof("收件人不存在，丢弃邮件: from=%s to=%v", email.From.EmailAddress, accounts)
-	return nil, true, nil
+	// 本地没有这个收件人：转交管理员。
+	//
+	// 这里曾经改成「静默丢弃」，结果主人收不到信了——账号名和收件地址只要有一点对不上，
+	// 邮件就人间蒸发，比"垃圾邮件进管理员信箱"糟糕得多。宁可多收，不可丢信。
+	// 外域收件人在 RCPT 阶段就已被 550 拒绝，所以不会再出现"替别人收信"的问题。
+	log.WithContext(ctx).Infof("收件人不存在，转交管理员: from=%s to=%v", email.From.EmailAddress, accounts)
+	if err := db.Instance.Table(&models.User{}).Where("is_admin=1").Find(&users); err != nil {
+		return nil, false, err
+	}
+	if len(users) == 0 {
+		// 连管理员都找不到，那就只能丢弃，至少记一条日志
+		log.WithContext(ctx).Errorf("收件人不存在且没有管理员可转交，丢弃: from=%s to=%v", email.From.EmailAddress, accounts)
+		return nil, true, nil
+	}
+	return users, false, nil
 }
 
 func incomingAccounts(email *parsemail.Email, reallyTo []string) []string {

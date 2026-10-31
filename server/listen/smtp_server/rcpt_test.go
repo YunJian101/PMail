@@ -52,8 +52,8 @@ func TestRcptOnlyAcceptsLocalDomain(t *testing.T) {
 	}
 }
 
-// 本地不存在的收件人：静默丢弃，不再转交管理员
-func TestUnknownRecipientIsDroppedNotForwarded(t *testing.T) {
+// 本地不存在的收件人：转交管理员（宁可多收，不可丢信）
+func TestUnknownRecipientIsForwardedToAdmin(t *testing.T) {
 	engine := newAuthenticationTestEngine(t)
 
 	oldDB := db.Instance
@@ -84,10 +84,49 @@ func TestUnknownRecipientIsDroppedNotForwarded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("解析收件人失败：%v", err)
 	}
-	if !dropped {
-		t.Fatal("未知收件人应该被丢弃")
+	if dropped {
+		t.Fatal("未知收件人不应该被丢弃（宁可多收，不可丢信）")
 	}
-	if len(users) != 0 {
-		t.Fatalf("不该再转交管理员，实际得到 %d 个收件人", len(users))
+	if len(users) != 1 || users[0].Account != "admin" {
+		t.Fatalf("应该转交给管理员，实际得到 %d 个收件人", len(users))
+	}
+}
+
+// 账号里存的是完整地址（安装向导会把整个邮箱地址写进 account），收信也必须能匹配上。
+func TestRecipientMatchesFullAddressAccount(t *testing.T) {
+	engine := newAuthenticationTestEngine(t)
+
+	oldDB := db.Instance
+	t.Cleanup(func() { db.Instance = oldDB })
+	db.Instance = engine
+
+	oldConfig := config.Instance
+	t.Cleanup(func() { config.Instance = oldConfig })
+	config.Instance = &config.Config{
+		Domain:  "example.com",
+		Domains: []string{"example.com"},
+	}
+
+	if _, err := engine.Insert(&models.User{Account: "user@example.com", Name: "admin", IsAdmin: 1}); err != nil {
+		t.Fatalf("创建账号失败：%v", err)
+	}
+
+	email := &parsemail.Email{From: &parsemail.User{EmailAddress: "sender@example.com"}}
+	users, dropped, err := resolveIncomingUsers(
+		&context.Context{},
+		email,
+		int(consts.EmailTypeReceive),
+		[]string{"user@example.com"},
+		true,
+		true,
+	)
+	if err != nil {
+		t.Fatalf("解析收件人失败：%v", err)
+	}
+	if dropped {
+		t.Fatal("完整地址形态的账号不该被丢弃")
+	}
+	if len(users) != 1 || users[0].Account != "user@example.com" {
+		t.Fatalf("应该匹配到 user@example.com，实际 %+v", users)
 	}
 }

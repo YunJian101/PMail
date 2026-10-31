@@ -60,14 +60,14 @@ func Forward(ctx *context.Context, e *parsemail.Email, forwardAddress string, us
 
 	log.WithContext(ctx).Debugf("%s", b)
 
-	from := user.Account + "@" + config.Instance.Domains[0]
+	from := parsemail.MailAddress(user.Account, config.Instance.Domains[0])
 	return forwardData(ctx, config.Instance.Domains[0], b, forwardAddress, from)
 }
 
 func ForwardRaw(ctx *context.Context, e *parsemail.Email, rawEmailData []byte, forwardAddress string, user *models.User) error {
 	log.WithContext(ctx).Debugf("开始原始邮件转发")
 
-	from := user.Account + "@" + config.Instance.Domains[0]
+	from := parsemail.MailAddress(user.Account, config.Instance.Domains[0])
 	return forwardData(ctx, config.Instance.Domains[0], rawEmailData, forwardAddress, from)
 }
 

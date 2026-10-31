@@ -71,7 +71,7 @@ func Send(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 			response.NewErrorResponse(response.ParamsError, "params error", "").FPrint(w)
 			return
 		}
-		if !ctx.IsAdmin && infos[0] != ctx.UserAccount {
+		if !ctx.IsAdmin && infos[0] != parsemail.LocalAccount(ctx.UserAccount) {
 			response.NewErrorResponse(response.ParamsError, "params error", "").FPrint(w)
 			return
 		}
@@ -79,7 +79,7 @@ func Send(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 	}
 
 	if reqData.From.Email == "" {
-		reqData.From.Email = ctx.UserAccount + "@" + config.Instance.Domain
+		reqData.From.Email = parsemail.MailAddress(ctx.UserAccount, config.Instance.Domain)
 	}
 
 	if reqData.From.Email == "" {

@@ -10,6 +10,55 @@
 
 ---
 
+## 界面预览
+
+> 截图来自内置的 mock 后端（`tools/mock-api.mjs`），数据均为示例。
+
+### 收件箱
+
+三栏布局：文件夹 / 邮件列表 / 读信区，未读加粗并带蓝点，投递失败的邮件单独标记。
+
+![收件箱](docs/screenshots/inbox.png)
+
+### 读信：引用默认折叠
+
+回复链里的历史引用默认收起，正文底部一张卡片标明「谁的引用内容 · 时间」，点开才展开，避免一屏全是旧内容。
+
+![读信页](docs/screenshots/reader.png)
+
+### 写信
+
+工具栏只留排版与链接，附件入口在发送栏（带数量角标），附件条固定在正文下方、不随正文滚动。
+
+![写信](docs/screenshots/compose.png)
+
+### 登录
+
+![登录页](docs/screenshots/login.png)
+
+<details>
+<summary><b>管理页（用户 / 收信规则 / 分组 / 系统设置）</b></summary>
+
+用户管理：
+
+![用户管理](docs/screenshots/admin-users.png)
+
+收信规则（按条件自动转发 / 移动）：
+
+![收信规则](docs/screenshots/admin-rules.png)
+
+分组设置：
+
+![分组设置](docs/screenshots/admin-folders.png)
+
+系统设置：证书状态、邮件端口与网页端口，端口被占用时不会杀进程，可在此改端口。
+
+![系统设置](docs/screenshots/admin-settings.png)
+
+</details>
+
+---
+
 ## 目录结构
 
 ```

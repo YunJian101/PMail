@@ -1,31 +1,26 @@
 package imap_server
 
 import (
-	"database/sql"
-	"github.com/Jinnrry/pmail/db"
 	"github.com/Jinnrry/pmail/models"
-	"github.com/Jinnrry/pmail/utils/errors"
+	"github.com/Jinnrry/pmail/services/auth"
 	"github.com/Jinnrry/pmail/utils/password"
 	"github.com/emersion/go-imap/v2"
 	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 func (s *serverSession) Login(username, pwd string) error {
-	if strings.Contains(username, "@") {
-		args := strings.Split(username, "@")
-		username = args[0]
+	// 账号可能是纯账号（admin）也可能是完整地址（admin@example.com），两种都要认。
+	// 以前这里会把 @ 后面砍掉再精确匹配，库里的账号若是完整地址就永远匹配不上。
+	user, err := auth.FindUserByAccount(username)
+	if err != nil {
+		log.WithContext(s.ctx).Errorf("%+v", err)
 	}
-
-	var user models.User
+	if user == nil {
+		user = &models.User{}
+	}
 
 	// 分三步判断：账号存在 -> 密码正确 -> 没被停用。
 	// 这样被停用的账号在客户端能看到「account disabled」而不是笼统的认证失败。
-	_, err := db.Instance.Where("account = ?", username).Get(&user)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.WithContext(s.ctx).Errorf("%+v", err)
-	}
-
 	if user.ID > 0 && password.Verify(pwd, user.Password) {
 		if user.Disabled == 1 {
 			log.WithContext(s.ctx).Infof("login rejected: account disabled")

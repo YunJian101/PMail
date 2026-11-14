@@ -1,17 +1,15 @@
 package controllers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"github.com/Jinnrry/pmail/config"
-	"github.com/Jinnrry/pmail/db"
 	"github.com/Jinnrry/pmail/dto/response"
 	"github.com/Jinnrry/pmail/i18n"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/services/auth"
 	"github.com/Jinnrry/pmail/session"
 	"github.com/Jinnrry/pmail/utils/array"
 	"github.com/Jinnrry/pmail/utils/context"
-	"github.com/Jinnrry/pmail/utils/errors"
 	"github.com/Jinnrry/pmail/utils/password"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -39,9 +37,13 @@ func Login(ctx *context.Context, w http.ResponseWriter, req *http.Request) {
 
 	// 分三步判断，才能区分「账号或密码错」与「账号被停用」：
 	// 以前把 disabled=0 混在查询条件里，停用账号和密码错长得一模一样，用户不知道发生了什么。
-	_, err = db.Instance.Where("account = ?", reqData.Account).Get(&user)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	// 账号可能是纯账号也可能是完整地址，两种写法都能登录
+	found, err := auth.FindUserByAccount(reqData.Account)
+	if err != nil {
 		log.Errorf("%+v", err)
+	}
+	if found != nil {
+		user = *found
 	}
 
 	if user.ID == 0 || !password.Verify(reqData.Password, user.Password) {

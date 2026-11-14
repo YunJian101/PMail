@@ -1,12 +1,11 @@
 package smtp_server
 
 import (
-	"database/sql"
 	"errors"
 	"github.com/Jinnrry/pmail/config"
-	"github.com/Jinnrry/pmail/db"
 	"github.com/Jinnrry/pmail/dto/parsemail"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/services/auth"
 	"github.com/Jinnrry/pmail/utils/array"
 	"github.com/Jinnrry/pmail/utils/context"
 	"github.com/Jinnrry/pmail/utils/id"
@@ -72,19 +71,17 @@ func (s *Session) AuthPlain(username, pwd string) error {
 
 	s.User = username
 
-	var user models.User
-
-	infos := strings.Split(username, "@")
-	if len(infos) > 1 {
-		username = infos[0]
+	// 账号可能是纯账号也可能是完整地址，两种都要认
+	// （以前把 @ 后面砍掉再精确匹配，库里存完整地址就永远登不上）
+	user, err := auth.FindUserByAccount(username)
+	if err != nil {
+		log.WithContext(s.Ctx).Errorf("%+v", err)
+	}
+	if user == nil {
+		user = &models.User{}
 	}
 
 	// 分三步判断：账号存在 -> 密码正确 -> 没被停用（停用要给出明确原因）
-	_, err := db.Instance.Where("account = ?", username).Get(&user)
-	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("%+v", err)
-	}
-
 	if user.ID > 0 && password.Verify(pwd, user.Password) {
 		if user.Disabled == 1 {
 			log.WithContext(s.Ctx).Infof("auth rejected: account disabled %s", user.Account)

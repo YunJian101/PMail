@@ -9,6 +9,7 @@ import (
 	"github.com/Jinnrry/pmail/dto"
 	"github.com/Jinnrry/pmail/dto/parsemail"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/services/auth"
 	"github.com/Jinnrry/pmail/services/del_email"
 	"github.com/Jinnrry/pmail/services/detail"
 	"github.com/Jinnrry/pmail/services/list"
@@ -83,14 +84,9 @@ func (a action) User(session *gopop.Session, username string) error {
 	}
 	log.WithContext(session.Ctx).Debugf("POP3 CMD: USER, Args:%s", username)
 
-	infos := strings.Split(username, "@")
-	if len(infos) > 1 {
-		username = infos[0]
-	}
-
-	log.WithContext(session.Ctx).Debugf("POP3 User %s", username)
-
-	session.User = username
+	// 保留客户端原样输入：可能是纯账号，也可能是完整地址。
+	// 以前这里把 @ 后面砍掉，导致库里存完整地址的账号永远登录失败。
+	session.User = strings.TrimSpace(username)
 	return nil
 }
 
@@ -104,14 +100,16 @@ func (a action) Pass(session *gopop.Session, pwd string) error {
 
 	log.WithContext(session.Ctx).Debugf("POP3 PASS %s , User:%s", pwd, session.User)
 
-	var user models.User
-
-	// 分三步判断：账号存在 -> 密码正确 -> 没被停用（停用要给出明确原因）
-	_, err := db.Instance.Where("account = ?", session.User).Get(&user)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	// 账号可能是纯账号也可能是完整地址，两种都要认
+	user, err := auth.FindUserByAccount(session.User)
+	if err != nil {
 		log.WithContext(session.Ctx.(*context.Context)).Errorf("%+v", err)
 	}
+	if user == nil {
+		user = &models.User{}
+	}
 
+	// 分三步判断：账号存在 -> 密码正确 -> 没被停用（停用要给出明确原因）
 	if user.ID > 0 && password.Verify(pwd, user.Password) {
 		if user.Disabled == 1 {
 			log.WithContext(session.Ctx.(*context.Context)).Infof("POP3 PASS rejected: account disabled")

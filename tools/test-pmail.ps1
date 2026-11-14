@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PMail install-flow acceptance test (runs a real process locally, no fnOS needed).
 
@@ -330,6 +330,65 @@ try {
         '"attrs":[{"name":"a.txt","data":"data:text/plain;base64,' + $b64 + '"}]}'
     $sendAtt = Invoke-Api "$httpUrl/api/email/send" @{ __raw = $attPayload }
     Check 'send with attachment succeeds' ($sendAtt.Json.errorNo -eq 0) $sendAtt.Text
+
+    # ---------- 10c2c. mail client login with a full-address account ----------
+    # Accounts may be stored as "name@domain" (the setup wizard writes the whole
+    # address). POP3/IMAP/SMTP AUTH must accept both "name" and "name@domain".
+    $createUser = Invoke-Api "$httpUrl/api/user/create" @{ __raw = '{"account":"noreply@e2e.test","username":"noreply","password":"MailPass123","disabled":0}' }
+    Check 'create account with full address' ($createUser.Json.errorNo -eq 0) $createUser.Text
+
+    function Invoke-Pop3Login([string]$user, [string]$pass) {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $client.Connect('127.0.0.1', 2110)
+        $stream = $client.GetStream()
+        $stream.ReadTimeout = 5000
+        $reader = New-Object System.IO.StreamReader($stream)
+        $writer = New-Object System.IO.StreamWriter($stream)
+        $writer.NewLine = "`r`n"
+        $writer.AutoFlush = $true
+        $null = $reader.ReadLine()
+        $writer.WriteLine("USER $user")
+        $userReply = $reader.ReadLine()
+        $writer.WriteLine("PASS $pass")
+        $passReply = $reader.ReadLine()
+        $writer.WriteLine('QUIT')
+        $client.Close()
+        return "$userReply | $passReply"
+    }
+
+    function Invoke-ImapLogin([string]$user, [string]$pass) {
+        # 2993 是 IMAPS（TLS），自签证书，这里不做校验
+        $client = New-Object System.Net.Sockets.TcpClient
+        $client.Connect('127.0.0.1', 2993)
+        $ssl = New-Object System.Net.Security.SslStream($client.GetStream(), $false, { param($s, $cert, $chain, $err) return $true })
+        $ssl.ReadTimeout = 5000
+        $ssl.AuthenticateAsClient('localhost')
+        $reader = New-Object System.IO.StreamReader($ssl)
+        $writer = New-Object System.IO.StreamWriter($ssl)
+        $writer.NewLine = "`r`n"
+        $writer.AutoFlush = $true
+        $null = $reader.ReadLine()
+        $writer.WriteLine("a1 LOGIN `"$user`" `"$pass`"")
+        $reply = $reader.ReadLine()
+        $writer.WriteLine('a2 LOGOUT')
+        $client.Close()
+        return $reply
+    }
+
+    $pop3Full = Invoke-Pop3Login 'noreply@e2e.test' 'MailPass123'
+    Check 'POP3 login with full address' ($pop3Full -match '\+OK \| \+OK') $pop3Full
+
+    $pop3Local = Invoke-Pop3Login 'noreply' 'MailPass123'
+    Check 'POP3 login with local part' ($pop3Local -match '\+OK \| \+OK') $pop3Local
+
+    $pop3Bad = Invoke-Pop3Login 'noreply@e2e.test' 'wrong-password'
+    Check 'POP3 rejects wrong password' ($pop3Bad -match '\-ERR') $pop3Bad
+
+    $imapFull = Invoke-ImapLogin 'noreply@e2e.test' 'MailPass123'
+    Check 'IMAP login with full address' ($imapFull -match 'a1 OK') $imapFull
+
+    $imapLocal = Invoke-ImapLogin 'noreply' 'MailPass123'
+    Check 'IMAP login with local part' ($imapLocal -match 'a1 OK') $imapLocal
 
     # ---------- 10c3. mail port status (ports never kill the process) ----------
     $ports = Invoke-Api "$httpUrl/api/settings/mail_ports"

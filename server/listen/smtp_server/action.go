@@ -107,17 +107,22 @@ func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 	return nil
 }
 
-// Rcpt 只接受本域收件人。
+// Rcpt 的收件人策略：
 //
-// 以前什么都不校验：别人往「随便什么@别人的域名」发信也会被收下，
-// 投递时发现本地没有这个账号，就转交给管理员，于是垃圾邮件和陌生人的信
-// 全进了管理员信箱。
-//
-// 现在的策略：
-//   - 收件域名不是自己的域名 → 550 Relaying denied（不替别人收信）
-//   - 是自己的域名 → 一律 250 收下（不暴露账号是否存在，防用户枚举）
-//     投递阶段发现账号不存在就静默丢弃，不退信、不转交
+//   - 已认证用户（提交端口 465/587，登录过账号）→ 可以发给任意地址，
+//     这是外发邮件的正常用法（博客、脚本用它发通知邮件都是这个场景）
+//   - 未认证的入站会话（25 端口）→ 只接受本域收件人：
+//     收件域名不是自己的域名就 550 Relaying denied（不替别人收信）；
+//     是自己的域名一律 250 收下（不暴露账号是否存在，防用户枚举），
+//     投递阶段发现账号不存在就转交管理员
 func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
+	// 登录过账号的会话按「外发」处理，收件人不受域名限制。
+	// 以前这里不看认证状态，导致已认证用户也发不出外部邮件（550 relaying denied）。
+	if s.isAuthenticated() {
+		s.To = append(s.To, to)
+		return nil
+	}
+
 	account := parsemail.BuilderUser(to)
 	if account == nil {
 		log.WithContext(s.Ctx).Infof("RCPT rejected (unparsable): %q", to)
@@ -141,6 +146,14 @@ func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
 
 	s.To = append(s.To, to)
 	return nil
+}
+
+// isAuthenticated 判断这个会话是否已经通过 AUTH 登录
+func (s *Session) isAuthenticated() bool {
+	if strings.TrimSpace(s.User) != "" {
+		return true
+	}
+	return s.Ctx != nil && s.Ctx.UserID > 0
 }
 
 // localDomains 返回本机负责的收件域名（小写）

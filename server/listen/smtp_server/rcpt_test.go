@@ -130,3 +130,24 @@ func TestRecipientMatchesFullAddressAccount(t *testing.T) {
 		t.Fatalf("应该匹配到 user@example.com，实际 %+v", users)
 	}
 }
+// 已认证用户（提交端口）必须能发往任意外部地址，否则博客/脚本发信会被 550 拦掉
+func TestRcptAllowsExternalRecipientWhenAuthenticated(t *testing.T) {
+	oldConfig := config.Instance
+	t.Cleanup(func() { config.Instance = oldConfig })
+	config.Instance = &config.Config{Domain: "example.com", Domains: []string{"example.com"}}
+
+	byUser := &Session{Ctx: &context.Context{}, User: "noreply@example.com"}
+	if err := byUser.Rcpt("someone@other-domain.com", nil); err != nil {
+		t.Fatalf("已认证会话（User 有值）应该允许外部收件人，实际：%v", err)
+	}
+
+	byCtx := &Session{Ctx: &context.Context{UserID: 7}}
+	if err := byCtx.Rcpt("someone@other-domain.com", nil); err != nil {
+		t.Fatalf("已认证会话（Ctx.UserID）应该允许外部收件人，实际：%v", err)
+	}
+
+	anonymous := &Session{Ctx: &context.Context{}}
+	if err := anonymous.Rcpt("someone@other-domain.com", nil); err == nil {
+		t.Fatal("未认证会话不该接受外部收件人")
+	}
+}

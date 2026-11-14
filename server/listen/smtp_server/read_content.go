@@ -74,7 +74,9 @@ func (s *Session) Data(r io.Reader) error {
 	// 判断是收信还是转发，只要是登陆了，都当成转发处理
 	if s.Ctx.UserID > 0 {
 		account, _ := email.From.GetDomainAccount()
-		if account != ctx.UserAccount && !ctx.IsAdmin {
+		// 只比较本地部分：账号字段可能是纯账号，也可能是完整地址（安装向导写入），
+		// 以前直接拿 "noreply" 跟 "noreply@example.com" 比，非管理员永远被判无权限。
+		if !senderMatchesAccount(account, ctx.UserAccount) && !ctx.IsAdmin {
 			return oerrors.New("No Auth")
 		}
 

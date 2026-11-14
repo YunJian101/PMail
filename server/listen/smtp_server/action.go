@@ -173,3 +173,13 @@ func (s *Session) Reset() {}
 func (s *Session) Logout() error {
 	return nil
 }
+
+// senderMatchesAccount 比较「邮件 From 的本地部分」与「账号的本地部分」是否一致。
+// 账号可能是纯账号（noreply）也可能是完整地址（noreply@example.com），
+// 两者都按本地部分比较，且不区分大小写。
+func senderMatchesAccount(fromAccount, userAccount string) bool {
+	return strings.EqualFold(
+		parsemail.LocalAccount(strings.TrimSpace(fromAccount)),
+		parsemail.LocalAccount(strings.TrimSpace(userAccount)),
+	)
+}

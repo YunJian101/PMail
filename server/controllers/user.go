@@ -6,6 +6,7 @@ import (
 	"github.com/Jinnrry/pmail/db"
 	"github.com/Jinnrry/pmail/dto/response"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/services/auth"
 	"github.com/Jinnrry/pmail/utils/array"
 	"github.com/Jinnrry/pmail/utils/context"
 	"github.com/Jinnrry/pmail/utils/password"
@@ -43,6 +44,14 @@ func CreateUser(ctx *context.Context, w http.ResponseWriter, req *http.Request) 
 
 	if reqData.Username == "" || reqData.Password == "" || reqData.Account == "" {
 		response.NewErrorResponse(response.ParamsError, "Params Error", "").FPrint(w)
+		return
+	}
+
+	// 同一个邮箱不能建出两个账号：
+	// noreply 和 noreply@example.com 指向同一个信箱，必须按邮箱判重，
+	// 不能只比字符串。
+	if existing, lookupErr := auth.FindUserByAccount(reqData.Account); lookupErr == nil && existing != nil {
+		response.NewErrorResponse(response.ParamsError, "Account already exists", "").FPrint(w)
 		return
 	}
 

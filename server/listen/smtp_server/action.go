@@ -69,8 +69,9 @@ func (s *Session) Auth(mech string) (sasl.Server, error) {
 func (s *Session) AuthPlain(username, pwd string) error {
 	log.WithContext(s.Ctx).Debugf("Auth %s %s", username, pwd)
 
-	s.User = username
-
+	// 注意：不能在这里先给 s.User 赋值。
+	// s.User 会被 Rcpt 用来判断"会话是否已认证"，若在验证密码前赋值，
+	// 密码错误的会话也会被当成已登录 → 服务器变成开放中继。
 	// 账号可能是纯账号也可能是完整地址，两种都要认
 	// （以前把 @ 后面砍掉再精确匹配，库里存完整地址就永远登不上）
 	user, err := auth.FindUserByAccount(username)
@@ -88,6 +89,7 @@ func (s *Session) AuthPlain(username, pwd string) error {
 			return errors.New("account disabled, please contact the administrator")
 		}
 
+		s.User = username
 		s.Ctx.UserAccount = user.Account
 		s.Ctx.UserID = user.ID
 		s.Ctx.UserName = user.Name
@@ -148,11 +150,10 @@ func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
 	return nil
 }
 
-// isAuthenticated 判断这个会话是否已经通过 AUTH 登录
+// isAuthenticated 判断这个会话是否已经通过 AUTH 登录。
+// 只认 Ctx.UserID：它在密码验证通过之后才会被赋值，
+// 而 s.User 在旧代码里验证前就写入了，拿它判断等于给开放中继开口子。
 func (s *Session) isAuthenticated() bool {
-	if strings.TrimSpace(s.User) != "" {
-		return true
-	}
 	return s.Ctx != nil && s.Ctx.UserID > 0
 }
 

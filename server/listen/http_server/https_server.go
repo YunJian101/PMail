@@ -11,6 +11,7 @@ import (
 	"github.com/Jinnrry/pmail/dto/response"
 	"github.com/Jinnrry/pmail/i18n"
 	"github.com/Jinnrry/pmail/models"
+	"github.com/Jinnrry/pmail/services/auth"
 	"github.com/Jinnrry/pmail/session"
 	"github.com/Jinnrry/pmail/utils/context"
 	"github.com/Jinnrry/pmail/utils/id"
@@ -172,11 +173,15 @@ func getLoginInfoByToken(token string) (models.User, error) {
 	if time.Now().Unix()-requestTimeStamp >= 5 {
 		return ret, errors.New("token expired")
 	}
-	var user models.User
-	db.Instance.Table("user").Where("account = ?", account).Get(&user)
-	if user.ID == 0 {
+	// token 里的账号可能是纯账号，也可能是完整地址，统一按两种形态查找
+	found, lookupErr := auth.FindUserByAccount(account)
+	if lookupErr != nil {
+		return ret, lookupErr
+	}
+	if found == nil {
 		return ret, errors.New("account or password error")
 	}
+	user := *found
 	if user.Disabled == 1 {
 		return ret, errors.New("account disabled, please contact the administrator")
 	}

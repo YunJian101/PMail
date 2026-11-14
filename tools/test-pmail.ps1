@@ -337,6 +337,10 @@ try {
     $createUser = Invoke-Api "$httpUrl/api/user/create" @{ __raw = '{"account":"noreply@e2e.test","username":"noreply","password":"MailPass123","disabled":0}' }
     Check 'create account with full address' ($createUser.Json.errorNo -eq 0) $createUser.Text
 
+    # 同一个信箱不能建两个账号：noreply 与 noreply@e2e.test 指向同一个邮箱
+    $dupUser = Invoke-Api "$httpUrl/api/user/create" @{ __raw = '{"account":"noreply","username":"noreply2","password":"MailPass123","disabled":0}' }
+    Check 'duplicate mailbox account rejected' ($dupUser.Json.errorNo -ne 0) $dupUser.Text
+
     function Invoke-Pop3Login([string]$user, [string]$pass) {
         $client = New-Object System.Net.Sockets.TcpClient
         $client.Connect('127.0.0.1', 2110)

@@ -136,11 +136,6 @@ func TestRcptAllowsExternalRecipientWhenAuthenticated(t *testing.T) {
 	t.Cleanup(func() { config.Instance = oldConfig })
 	config.Instance = &config.Config{Domain: "example.com", Domains: []string{"example.com"}}
 
-	byUser := &Session{Ctx: &context.Context{}, User: "noreply@example.com"}
-	if err := byUser.Rcpt("someone@other-domain.com", nil); err != nil {
-		t.Fatalf("已认证会话（User 有值）应该允许外部收件人，实际：%v", err)
-	}
-
 	byCtx := &Session{Ctx: &context.Context{UserID: 7}}
 	if err := byCtx.Rcpt("someone@other-domain.com", nil); err != nil {
 		t.Fatalf("已认证会话（Ctx.UserID）应该允许外部收件人，实际：%v", err)
@@ -149,5 +144,12 @@ func TestRcptAllowsExternalRecipientWhenAuthenticated(t *testing.T) {
 	anonymous := &Session{Ctx: &context.Context{}}
 	if err := anonymous.Rcpt("someone@other-domain.com", nil); err == nil {
 		t.Fatal("未认证会话不该接受外部收件人")
+	}
+
+	// 只有 User 字段有值（密码验证失败时旧代码会写入）不算已认证，
+	// 否则 AUTH 失败后仍能发外域，等于开放中继。
+	onlyUser := &Session{Ctx: &context.Context{}, User: "noreply@example.com"}
+	if err := onlyUser.Rcpt("someone@other-domain.com", nil); err == nil {
+		t.Fatal("仅 User 有值不算已认证，不该放行外部收件人")
 	}
 }

@@ -83,7 +83,7 @@ func DoRule(ctx *context.Context, rule *dto.Rule, email *parsemail.Email, user *
 		if err != nil {
 			log.WithContext(ctx).Errorf("Forward Error:%v", err)
 		} else {
-			log.WithContext(ctx).Infof("Forward Success:%s@%s -> %s", user.Account, config.Instance.Domains[0], rule.Params)
+			log.WithContext(ctx).Infof("Forward Success:%s -> %s", parsemail.MailAddress(user.Account, config.Instance.Domains[0]), rule.Params)
 		}
 	case dto.MOVE:
 		doMove(ctx, rule, email, user)
